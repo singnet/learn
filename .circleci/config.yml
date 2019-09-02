@@ -3,14 +3,14 @@ version: 2.0
 jobs:
   build:
     docker:
-      - image: opencog/opencog-deps
+      - image: singularitynet/opencog-deps
         user: root
         environment:
           PGHOST: opencog-postgres
           PGUSER: opencog_user
           PGPASSWORD: cheese
           CCACHE_DIR: /ws/ccache
-      - image: opencog/postgres
+      - image: singularitynet/postgres
         name: opencog-postgres
     working_directory: /ws/learn
     steps:
