@@ -65,6 +65,9 @@ jobs:
           name: Build
           command: cd build && make -j2
       - run:
+          name: Reset databases
+          command: cd build && make db
+      - run:
           name: Run tests
           command: cd build && make test
       - run:
