@@ -3,7 +3,7 @@
 ;
 ; Representing connector-words as vectors over shapes (word-shape pairs)
 ;
-; Copyright (c) 2018 Linas Vepstas
+; Copyright (c) 2018, 2021 Linas Vepstas
 ;
 ; ---------------------------------------------------------------------
 ; OVERVIEW
@@ -91,8 +91,7 @@
 ;
 ; Using the above example: the shape will be
 ;
-;    (Evaluation
-;       (PredicateNode "*-shape-*")
+;    (Shape
 ;       (WordNode "playing")
 ;       (Connector
 ;          (Variable "$wildcard")
@@ -103,19 +102,18 @@
 ;
 ; and the word-shape pair will be
 ;
-;    (Evaluation
-;       (Predicate "*-word-shape pair-*")
+;    (CrossSection
 ;       (WordNode "level")
-;       (the above shape))
+;       (Shape ... the above shape))
 ;
-; TODO: with appropriate redesign, this probably should be moved
-; to the atomspace (opencog matrix) module.  That is because it
+; TODO: with appropriate cleanup, this probably should be moved
+; to a generic "section" or "sheaf" module.  That is because it
 ; generically explodes a section into all of it's constituent
 ; connector-shape pairs, which is presumably something everyone
 ; will want to do. There's nothing special about WordNodes, here.
 ;
-; TODO: Create ShapeLink link type in the atomspace, and create the
-; CrossSection link type so that its a word-shape pair.
+; The redesign requires passing in the correct object holding the
+; sections that should be shaped.
 ;
 ; ---------------------------------------------------------------------
 ;
@@ -127,9 +125,11 @@
 ; ---------------------------------------------------------------------
 ; ---------------------------------------------------------------------
 ;
-(define-public (make-shape-vec-api)
+(define-public (add-shape-vec-api LLOBJ)
 "
-  make-shape-vec-api -- API for cross-section word-shape pairs.
+  add-shape-vec-api -- Provide API for CrossSections obtained from
+  Sections. Assumes that LLOBJ provides an API that gives access to
+  Sections.
 
   A more detailed description is at the top of this file.
 "
@@ -144,8 +144,6 @@
 		)
 
 		(define star-wild (Variable "$connector-word"))
-		(define shape-pred (Predicate "*-shape-*"))
-		(define pair-pred (Predicate "*-word-shape pair-*"))
 
 		(define any-left (AnyNode "shape word"))
 		(define any-right (AnyNode "shape section"))
@@ -153,20 +151,27 @@
 		; Well, left-type can also be a WordClassNode, but we lie
 		; about that, here.
 		(define (get-left-type) 'WordNode)
-		(define (get-right-type) 'EvaluationLink)
-		(define (get-pair-type) 'EvaluationLink)
-		(define (get-section-type) 'Section)
+		(define (get-right-type) 'ShapeLink)
+		(define (get-pair-type) 'CrossSection)
 
 		; Get the observational count on the word-shape pair
 		(define (get-count SHAPE-PR) (cog-count SHAPE-PR))
 
 		; L-ATOM is a WordNode or WordClassNode. R-ATOM is a shape.
 		(define (get-pair L-ATOM R-ATOM)
-			(cog-link 'EvaluationLink pair-pred L-ATOM R-ATOM))
+			(cog-link 'CrossSection L-ATOM R-ATOM))
 
 		; As above, but force the creation of the pair.
 		(define (make-pair L-ATOM R-ATOM)
-			(EvaluationLink pair-pred L-ATOM R-ATOM))
+			(CrossSection L-ATOM R-ATOM))
+
+		; Get the left and right parts of the pair.
+		; The zeroth atom is the predicate.
+		(define (get-pair-left SHAPE-PR)
+			(cog-outgoing-atom SHAPE-PR 0))
+
+		(define (get-pair-right SHAPE-PR)
+			(cog-outgoing-atom SHAPE-PR 1))
 
 		; Create the section corresponding to the word-shape pair.
 		; That is, unexplode (implode?) the word-shape pair back
@@ -193,7 +198,7 @@
 			(define end (cdr rest))
 			(define ctcr (Connector WORD dir))
 			(define cseq (ConnectorSeq begn ctcr end))
-			(Section point cseq))
+			(LLOBJ 'make-pair point cseq))
 
 		; Get the count, if the pair exists.
 		(define (get-pair-count L-ATOM R-ATOM)
@@ -222,7 +227,7 @@
 			l-basis)
 
 		(define (get-right-basis)
-			(if (null? r-basis) (set! r-basis (cog-incoming-set pair-pred)))
+			(if (null? r-basis) (set! r-basis (cog-get-atoms 'ShapeLink)))
 			r-basis)
 
 		(define (get-left-size)
@@ -233,6 +238,15 @@
 			(if (eq? 0 r-size) (set! r-size (length (get-right-basis))))
 			r-size)
 
+		; Invalidate the caches
+		(define (clobber)
+			(set! l-basis '())
+			(set! r-basis '())
+			(set! l-size 0)
+			(set! r-size 0)
+			(if (LLOBJ 'provides 'clobber) (LLOBJ 'clobber))
+		)
+
 		; -------------------------------------------------------
 		; Create all of the word-shape pairs that correspond to a
 		; section. This explodes a section into all of the word-shape
@@ -240,9 +254,16 @@
 		; Basically, given a Section, it walks over the ConnectorSeq
 		; inside of it, replaces each word with a variable (to define
 		; the shape) and then creates a pair consisting of that word,
-		; and that shape.  We fudge the observation count, by taking
-		; the observation count on the secion, and distributing it
-		; uniformly over each word-shape pair.
+		; and that shape.
+		;
+		; We copy the observation count from the observation count on
+		; the section. This is the "right thing to do", because every
+		; observation of a section is also an observation of every shape
+		; in that section, and so we can weight all of these equally.
+		; A case can be made for an alternative: the obsservation of
+		; connectors. In this case, the count on the shapes (and the
+		; count on the sections!) should be devided by the arity of the
+		; disjunct. But that would not alter the counts here.
 		;
 		; Note that the shapes will hold marginal counts.
 		;
@@ -258,15 +279,13 @@
 		; avoid using both ConnectorSeq and Section directly, because
 		; these pollute the space of data. So, the above gets encoded
 		; as
-		; (Evaluation (Predicate "shape") (Word "foo")
+		; (Shape (Word "foo")
 		;     (Connector (Word "bar") (ConnectorDir "-"))
 		;     (Connector (Variable $X) (ConnectorDir "-)))
 		; with the left-word "foo" heading up the list.
 		; This can be easily dis-assembled to run actual queries against
 		; the atomspace.
 		(define (explode-sections)
-
-			(define start-time (current-time))
 
 			; Walk over a section, and insert a wild-card.
 			(define (explode-section SEC)
@@ -276,17 +295,17 @@
 				(define cncts (cog-outgoing-set (gdr SEC)))
 				(define num-cncts (length cncts))
 
-				; Count on section uniformly distributed across
-				; each of the cross-sections.
-				(define weight (cog-new-ctv 1 0
-					(/ (cog-count SEC) (exact->inexact num-cncts))))
+				; Copy the count. All shapes have the same count as
+				; the section itself. XXX should use getter on section.
+				; (define weight (CountTruthValue 1 0 (cog-count SEC)))
+				(define weight (cog-tv SEC))
 
 				; Place the wild-card into the N'th location of the section.
 				; Of course, this creates the section, if it does not yet
 				; exist. Well, we don't want to create actual sections; that
 				; would screw up other code that expects sections to not
-				; have wildcards in them. So we are creating EvaluationLinks
-				; instead. This should be renamed...
+				; have wildcards in them. So we are creating ShapeLinks
+				; instead.
 				(define (insert-wild N)
 					(define front (take cncts N))
 					(define back (drop cncts N))
@@ -294,16 +313,18 @@
 					(define wrd (gar ctr))  ; the word being exploded
 					(define dir (gdr ctr))  ; the direction being exploded
 					(define wild (Connector star-wild dir))
-					(Evaluation pair-pred wrd
-						(Evaluation shape-pred point front wild (cdr back))
+					(CrossSection wrd
+						(Shape point front wild (cdr back))
 						weight))
 
 				; Create all the wild-cards for this section.
-				; (map insert-wild (list-tabulate num-cncts values))
-				(for-each insert-wild (list-tabulate num-cncts values))
+				; (map insert-wild (iota num-cncts))
+				(for-each insert-wild (iota num-cncts))
 			)
 
-			(for-each explode-section (cog-get-atoms 'Section))
+			; Ask the LLOBJ for all Sections.
+			(define start-time (current-time))
+			(for-each explode-section (LLOBJ 'get-all-elts))
 			(format #t "Elapsed time to create shapes: ~A secs\n"
 				(- (current-time) start-time))
 		)
@@ -365,8 +386,9 @@ around for a while.
 					(Glob "$end"))))
 
 			; We use the DontExec hack, as otherwise the execution of
-			; this attempts to evaluate the resulting EvaluationLink.
-			(define shape (DontExec (Evaluation shape-pred
+			; this attempts to evaluate the resulting ShapeLink.
+			; (XXX really? I don't think so...)
+			(define shape (DontExec (Shape
 				(Variable "$point")
 				(Glob "$begin")
 				(Connector star-wild (Variable "$dir"))
@@ -430,21 +452,26 @@ around for a while.
 			; marginals are located on any-left, any-right
 			(fetch-incoming-set any-left)
 			(fetch-incoming-set any-right)
-			(load-atoms-of-type 'Section)
+			(LLOBJ 'fetch-pairs)
 			(format #t "Elapsed time to load word sections: ~A seconds\n"
 				(- (current-time) start-time))
 			(set! start-time (current-time))
-			(fetch-incoming-set pair-pred)
+			(load-atoms-of-type 'CrossSection)
 			(format #t "Elapsed time to load word-shape pairs: ~A seconds\n"
 				(- (current-time) start-time))
 
-			; It is just to easy for the user to forget to do this,
-			; yet its a very important step for some (but not all)
-			; applications.  If user forgets, its a painful debug
-			; session ahead for the user. If user does not actually
-			; need this, then its just a waste of RAM...
+			; We need to also fetch the shapes. There are two things
+			; we could do here: fetch them from RAM, or just re-create
+			; them. For now, just re-creating them seems to be suficient.
+			; This does lose any kinds of distinct data that may have been
+			; stored on the sections. It also clobbers the counts, and
+			; fails to restore frequencies... is this OK? I'm confused.
 			(explode-sections)
 		)
+
+		;-------------------------------------------
+		(define (describe)
+			(display (procedure-property add-shape-vec-api 'documentation)))
 
 		;-------------------------------------------
 		; Explain the non-default provided methods.
@@ -454,6 +481,8 @@ around for a while.
 				((right-basis)        get-right-basis)
 				((left-basis-size)    get-left-size)
 				((right-basis-size)   get-right-size)
+				((clobber)            clobber)
+				(else #f)
 		))
 
 		; Methods on the object
@@ -468,6 +497,8 @@ around for a while.
 				((get-pair)         get-pair)
 				((get-count)        get-count)
 				((make-pair)        make-pair)
+				((left-element)     get-pair-left)
+				((right-element)    get-pair-right)
 				((left-wildcard)    get-left-wildcard)
 				((right-wildcard)   get-right-wildcard)
 				((wild-wild)        get-wild-wild)
@@ -478,7 +509,10 @@ around for a while.
 				((get-section)      get-section)
 
 				((provides)         provides)
+				((clobber)          clobber)
 				((filters?)         (lambda () #f))
+
+				((describe)         (describe))
 				(else (error "Bad method call on cross-section:" message)))
 			args))
 ))
@@ -486,7 +520,7 @@ around for a while.
 ; ---------------------------------------------------------------------
 ; Example usage:
 ;
-; (define cva (make-shape-vec-api))
+; (define cva (add-shape-vec-api (make-pseudo-cset-api)e))
 ; (cva 'fetch-pairs)
 ; (define cvs (add-pair-stars cva))
 ; (cvs 'left-basis-size)

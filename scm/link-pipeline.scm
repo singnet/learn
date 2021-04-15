@@ -368,8 +368,8 @@
 ; update-lg-link-counts -- Increment link counts
 ;
 ; This routine updates LG link counts in the database. The algo is trite:
-; fetch the LG link from SQL, increment the attached CountTruthValue,
-; and save back to SQL.
+; fetch the LG link from storage, increment the attached CountTruthValue,
+; and save back to storage.
 
 (define (update-lg-link-counts single-sent)
 
@@ -403,66 +403,16 @@
 		(sentence-get-parses SENT))
 )
 
-; ---------------------------------------------------------------------
-;
-; Simplistic parse-rate monitoring utility.
-;
-; Used to monitor how many sentences have been processed.  It counts
-; how many sentences have been processed so far. If called with a null
-; argument, it increments the count; else it prints the argument as
-; a string, followed by the count and rate.
-;
-(define-public monitor-parse-rate
-	(let ((mtx (make-mutex))
-			(cnt 0)
-			(start-time (- (current-time) 0.000001)))
-		(lambda (msg)
-			(if (null? msg)
-				(begin
-					(lock-mutex mtx)
-					(set! cnt (+ cnt 1))
-					(unlock-mutex mtx))
-				(format #t "~A cnt=~A rate=~A\n" msg cnt
-					(/ cnt (- (current-time) start-time))))
-		)))
-
-; ---------------------------------------------------------------------
-; Report the average time spent in GC.
-(define-public report-avg-gc-cpu-time
-	(let ((last-gc (gc-stats))
-			(start-time (get-internal-real-time))
-			(run-time (get-internal-run-time)))
-		(lambda ()
-			(define now (get-internal-real-time))
-			(define run (get-internal-run-time))
-			(define cur (gc-stats))
-			(define gc-time-taken (* 1.0e-9 (- (cdar cur) (cdar last-gc))))
-			(define elapsed-time (* 1.0e-9 (- now start-time)))
-			(define cpu-time (* 1.0e-9 (- run run-time)))
-			(define ngc (- (assoc-ref cur 'gc-times)
-				(assoc-ref last-gc 'gc-times)))
-			(format #t "Elapsed: ~6f secs. Rate: ~5f gc/min %cpu-GC: ~5f%  %cpu-use: ~5f%\n"
-				elapsed-time
-				(/ (* ngc 60) elapsed-time)
-				(* 100 (/ gc-time-taken elapsed-time))
-				(* 100 (/ cpu-time elapsed-time))
-			)
-			(set! last-gc cur)
-			(set! start-time now)
-			(set! run-time run))))
-
-(set-procedure-property! report-avg-gc-cpu-time 'documentation
-"
-  report-avg-gc-cpu-time - Report the average time spent in GC.
-
-  Print statistics about how much time has been spent in garbage
-  collection, and how much time spent in other computational tasks.
-  Resets the stats after each call, so only the stats since the
-  previous call are printed.
-"
-)
-
 ; --------------------------------------------------------------------
+
+(define-public monitor-parse-rate (make-rate-monitor))
+(set-procedure-property! monitor-parse-rate 'documentation
+"
+   monitor-parse-rate MSG - monitor the parse rate.
+
+   Call this function with a string MSG to print out the current
+   parse rate; that is, how quickly `observe-text-mode` is progressing.
+")
 
 (define-public (observe-text-mode plain-text observe-mode count-reach)
 "
@@ -481,6 +431,9 @@
  and word-pairs observed in incoming text. This takes in raw text, gets
  it parsed, and then updates the counts for the observed words and word
  pairs.
+
+ The parse rate can be monitored by calling, by hand, the guile function
+ `(monitor-parse-rate MSG)` for some string MSG.
 "
 	; Count the atoms in the sentence, according to the counting method
 	; passed as argument, then delete the sentence.
@@ -496,9 +449,15 @@
 		; LgParseLink below, because LgParseMinimal is not enough.
 		; (update-disjunct-counts sent)
 		(delete-sentence SENT)
-		(monitor-parse-rate '()))
+		(monitor-parse-rate #f))
 
 	; -------------------------------------------------------
+#!
+As of guile-3.0, the RAM usage issues seem to have gone away,
+and so manual garbage colection is not needed any more.
+(I don't know if this is due to changes in guile, or due to
+how we run the pipeline, in general.)
+
 	; Manually run the garbage collector, every now and then.
 	; This helps keep RAM usage down, which is handy on small-RAM
 	; machines. However, it does cost CPU time, in exchange.
@@ -515,7 +474,7 @@
 	; from relex seem to cause bad memory fragmentation.
 	(define maybe-gc
 		(let ((cnt 0)
-				(max-size (* 2750 1000 1000)))  ; 750 MB
+				(max-size (* 2750 1000 1000)))  ; 2750 MB
 			(lambda ()
 				(if (< max-size (- (assoc-ref (gc-stats) 'heap-size)
 							(assoc-ref (gc-stats) 'heap-free-size)))
@@ -524,7 +483,8 @@
 						(set! cnt (+ cnt 1))
 						;(report-avg-gc-cpu-time)
 					)))))
-
+!#
+	; -------------------------------------------------------
 	; Process the text locally (in RAM), with the LG API link or clique-count.
 	(define (local-process TXT obs-mode cnt-reach)
 		; try-catch wrapper for duplicated text. Here's the problem:
@@ -545,8 +505,8 @@
 					)
 					(process-sent sent obs-mode cnt-reach)
 					; Remove crud so it doesn't build up.
-					(cog-extract lgn)
-					(cog-extract phr)
+					(cog-extract! lgn)
+					(cog-extract! phr)
 				))
 			(lambda (key . args) #f))
 	)
@@ -561,7 +521,13 @@
 (define-public (observe-text plain-text)
 "
  Wrapper to maintain backwards compatibility in NLP pipeline.
- Passes default parameters to observe-text-mode
+ Passes default parameters to observe-text-mode.
+
+ Uses the LG parser to create 24 different planar tree parses per
+ sentence. Why 24? No particular reason; it provides a reasonable
+ sample of all possible planar parses. The number of word-pairs
+ sampled will be at least N pairs per parse, where N is the length
+ of the sentence.
 "
 	(observe-text-mode plain-text "any" 24)
 )
