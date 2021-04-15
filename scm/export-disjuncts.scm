@@ -40,6 +40,7 @@
 ; ---------------------------------------------------------------------
 
 (use-modules (srfi srfi-1))
+(use-modules (ice-9 optargs)) ; for define*-public
 
 (catch #t
 	(lambda () (use-modules (dbi dbi))) ; guile-dbi interface to SQLite3
@@ -228,6 +229,7 @@
 			(is-open #t)
 			(secs (current-time))
 			(word-cache (make-atom-set))
+			(warn-cnt 0)
 		)
 
 		; Escape quotes -- replace single quotes by two successive
@@ -245,16 +247,19 @@
 		; it belongs to into the dict.
 		(define (add-one-word WORD-STR CLASS-STR)
 
-			; Oh no!!! Need to fix LEFT-WALL!
-			(if (string=? WORD-STR "###LEFT-WALL###")
-				(set! WORD-STR "LEFT-WALL"))
-
 			(set! WORD-STR (escquote WORD-STR 0))
 			(set! CLASS-STR (escquote CLASS-STR 0))
 
-			(dbi-query db-obj (format #f
-				"INSERT INTO Morphemes VALUES ('~A', '~A.~D', '~A');"
-				WORD-STR WORD-STR wrd-id CLASS-STR))
+			; Oh no!!! Need to fix LEFT-WALL!
+			(if (string=? WORD-STR "###LEFT-WALL###")
+				(dbi-query db-obj (format #f
+					"INSERT INTO Morphemes VALUES ('LEFT-WALL', 'LEFT-WALL', '~A');"
+					CLASS-STR))
+
+				; Link-grammar SUBSCRIPT_MARK is hex 0x3 aka ASCII #\etx
+				(dbi-query db-obj (format #f
+					"INSERT INTO Morphemes VALUES ('~A', '~A~C~D', '~A');"
+					WORD-STR WORD-STR #\etx wrd-id CLASS-STR)))
 
 			(if (not (equal? 0 (car (dbi-get_status db-obj))))
 				(throw 'fail-insert 'make-db-adder
@@ -329,9 +334,19 @@
 				"INSERT INTO Disjuncts VALUES ('~A', '~A', ~F);"
 				(mk-cls-str germ-str) dj-str COST))
 
-			(if (not (equal? 0 (car (dbi-get_status db-obj))))
-				(throw 'fail-insert 'make-db-adder
-					(cdr (dbi-get_status db-obj))))
+			; Might fail with "UNIQUE constraint failed:" so just warn.
+			; XXX This is a temp hack, because the classification code
+			; is not yet written.
+			(let ((err-code (car (dbi-get_status db-obj)))
+					(err-msg (cdr (dbi-get_status db-obj))))
+				(if (not (equal? 0 err-code))
+					(if (string-prefix? "UNIQUE" err-msg)
+						(if (< warn-cnt 10)
+							(begin
+								(set! warn-cnt (+ 1 warn-cnt))
+								(format #t "Warning: ~A: Did you forget to classify the connectors?\n"
+									err-msg)))
+						(throw 'fail-insert 'make-db-adder err-msg))))
 		)
 
 		; Add a section to the database
@@ -339,7 +354,10 @@
 			(define germ (gar SECTION))
 			(define cset (gdr SECTION))
 			(define cost (COST-FN SECTION))
-			(add-germ-cset-pair germ cset cost))
+			; Cost will be +inf.0 for sections that have no MI on them.
+			; This .. uhh, might be due to a bug in earlier code!?
+			(if (< cost 1.0e3)
+				(add-germ-cset-pair germ cset cost)))
 
 		; Write to disk, and close the database.
 		(define (shutdown)
@@ -395,7 +413,8 @@
 			"CREATE TABLE Disjuncts ("
 			"classname TEXT NOT NULL, "
 			"disjunct TEXT NOT NULL, "
-			"cost REAL );"))
+			"cost REAL, "
+			"UNIQUE(classname,disjunct) );"))
 
 		(dbi-query db-obj
 			"CREATE INDEX class_idx ON Disjuncts(classname);")
@@ -408,7 +427,7 @@
 
 		(dbi-query db-obj (string-append
 			"INSERT INTO Disjuncts VALUES ("
-			"'<dictionary-version-number>', 'V5v6v0+', 0.0);"))
+			"'<dictionary-version-number>', 'V5v9v0+', 0.0);"))
 
 		(dbi-query db-obj (string-append
 			"INSERT INTO Morphemes VALUES ("
@@ -452,7 +471,8 @@
 
 ;  ---------------------------------------------------------------------
 
-(define-public (export-csets CSETS DB-NAME LOCALE)
+(define*-public (export-csets CSETS DB-NAME LOCALE #:key
+	(INCLUDE-UNKNOWN #f))
 "
   export-csets CSETS DB-NAME LOCALE
 
@@ -460,6 +480,11 @@
   CSETS is a matrix containing the connector sets to be written.
   DB-NAME is the databse name to write to.
   LOCALE is the locale to use; e.g EN_us or ZH_cn
+
+  Optional keyword: #:INCLUDE-UNKNOWN If set to #t, then each word class
+  will also be exported as an UNKNOWN-WORD, allowing the LG parser to use
+  this word class when encountering a word that it does not know (i.e.
+  is not a part of the vocabulary.)
 
   Note that link-grammar expects the database file to be called
   \"dict.db\", always!
@@ -474,7 +499,7 @@
   Example usage:
      (define pca (make-pseudo-cset-api))
      (define fca (add-subtotal-filter pca 50 50 10 #f))
-     (export-csets fca \"dict.db\" \"EN_us\")
+     (export-csets fca \"dict.db\" \"EN_us\" #:INCLUDE-UNKNOWN #t)
 
   In this example, `pca` is the usual API to word-disjunct pairs.
   The subtotal filter only admits those sections with a large-enough
@@ -484,7 +509,7 @@
 	; atomspace. Create the object that knows how to get the MI
 	; of a word-disjunct pair.
 	(define psa (add-pair-stars CSETS))
-	(define mi-source (add-pair-freq-api psa))
+	(define mi-source (add-pair-freq-api psa #:nothrow #t))
 	(define looper (add-loop-api psa))
 
 	; Use the MI between word and disjunct as the link-grammar cost
@@ -511,11 +536,14 @@
 	; Dump all the connector sets into the database
 	(looper 'for-each-pair sectioner)
 
-	(format #t "Will store ~D unknown word classes\n"
-		(length multi-member-classes))
-	(for-each
-		(lambda (cls) (dbase 'add-unknown cls))
-		multi-member-classes)
+	(if INCLUDE-UNKNOWN
+		(begin
+			(format #t "Will store ~D unknown word classes\n"
+				(length multi-member-classes))
+			(for-each
+				(lambda (cls) (dbase 'add-unknown cls))
+				multi-member-classes))
+		(format #t "Skipping adding unknown-word classes\n"))
 
 	; Close the database
 	(dbase 'shutdown)

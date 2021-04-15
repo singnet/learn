@@ -14,8 +14,9 @@
 ; ---------------------------------------------------------------------
 
 (use-modules (srfi srfi-1))
-(use-modules (ice-9 threads))
+(use-modules (ice-9 atomic))
 (use-modules (ice-9 receive))   ; for partition
+(use-modules (ice-9 threads))
 
 ; ---------------------------------------------------------------------
 ;
@@ -162,6 +163,97 @@
 				))))
 
 	(make-next-pair LST (cdr LST) ACC)
+)
+
+; ---------------------------------------------------------------
+; ---------------------------------------------------------------
+;
+(define-public (make-rate-monitor)
+"
+  make-rate-monitor - simplistic rate monitoring utility.
+
+  Use this to monitor the rate at which actions are being performed.
+  It returns a function taking one argument: either #f or a string
+  message. If called with #f, it increments a count and returns.
+  If called with a message, it will print the processing rate.
+
+  Example usage:
+    (define monitor-rate (make-rate-monitor))
+    (monitor-rate #f)
+    (sleep 1)
+    (monitor-rate #f)
+    (monitor-rate \"This is progress:\")
+    (monitor-rate \"Did ~A in ~A seconds rate=~5F items/sec\")
+"
+	(define cnt (make-atomic-box 0))
+	(define start-time (- (current-time) 0.000001))
+
+	(lambda (msg)
+		(if (nil? msg)
+			(atomic-inc cnt)
+			(let* ((acnt (atomic-box-ref cnt))
+					(elapsed (- (current-time) start-time))
+					(rate (/ acnt elapsed))
+				)
+				(if (string-index msg #\~)
+					(format #t msg acnt elapsed rate)
+					(format #t "~A done=~A rate=~5f per sec\n"
+						msg acnt rate)))))
+)
+
+; ---------------------------------------------------------------
+
+(define-public (block-until-idle BUSY-FRAC)
+"
+  block-until-idle BUSY-FRAC - Block until CPU usage goes below BUSY-FRAC
+
+  This function simply won't return until the CPU usage drops below
+  BUSY-FRAC, which must be a number less than 1.0 and greater than
+  0.03. The min value is because this function uses CPU time itself,
+  and so contributes to the business of the system.
+"
+	(define (block cpuuse)
+		(sleep 1)
+		(let ((now (get-internal-run-time)))
+			(if (< BUSY-FRAC (/ (- now cpuuse) 1000000000.0))
+				(block now))))
+	(block (get-internal-run-time))
+)
+
+; ---------------------------------------------------------------------
+; Report the average time spent in GC.
+(define-public report-avg-gc-cpu-time
+	(let ((last-gc (gc-stats))
+			(start-time (get-internal-real-time))
+			(run-time (get-internal-run-time)))
+		(lambda ()
+			(define now (get-internal-real-time))
+			(define run (get-internal-run-time))
+			(define cur (gc-stats))
+			(define gc-time-taken (* 1.0e-9 (- (cdar cur) (cdar last-gc))))
+			(define elapsed-time (* 1.0e-9 (- now start-time)))
+			(define cpu-time (* 1.0e-9 (- run run-time)))
+			(define ngc (- (assoc-ref cur 'gc-times)
+				(assoc-ref last-gc 'gc-times)))
+			(format #t "Elapsed: ~6f secs. Rate: ~5f gc/min %cpu-GC: ~5f%  %cpu-use: ~5f%\n"
+				elapsed-time
+				(/ (* ngc 60) elapsed-time)
+				(* 100 (/ gc-time-taken elapsed-time))
+				(* 100 (/ cpu-time elapsed-time))
+			)
+			(set! last-gc cur)
+			(set! start-time now)
+			(set! run-time run))))
+
+(set-procedure-property! report-avg-gc-cpu-time 'documentation
+"
+  report-avg-gc-cpu-time - Report the average time spent in GC.
+
+  Print statistics about how much time has been spent in garbage
+  collection, and how much time spent in other computational tasks.
+  Resets the stats after each call, so only the stats since the
+  previous call are printed.
+"
 )
 
 ; ---------------------------------------------------------------

@@ -82,6 +82,11 @@
 ; tens-of-millions, while a "typical" English word might have a few
 ; thousand non-zero sections.
 ;
+; Note: At this time, there can only ever be one such object in the
+; entire AtomSpace. There is nothing in here to distinguish one
+; collection of sections from another. I suppose that this should be
+; fixed, but so far, there has not been any need for this.
+;
 ; ---------------------------------------------------------------------
 ;
 (use-modules (srfi srfi-1))
@@ -141,7 +146,7 @@
 			; Marginals are located on any-left, any-right
 			(fetch-incoming-set any-left)
 			(fetch-incoming-set any-right)
-			; Loading Sections is a bit too mcuh, as that will also
+			; Loading Sections is a bit too much, as that will also
 			; pick up WordClassNodes. But I guess that is OK for now.
 			(load-atoms-of-type 'Section)
 			(format #t "Elapsed time to load csets: ~A secs\n"
@@ -152,21 +157,21 @@
 			(apply (case message
 				((name) (lambda () "Word-Disjunct Pairs (Connector Sets)"))
 				((id)   (lambda () "cset"))
-				((left-type) get-left-type)
-				((right-type) get-right-type)
-				((pair-type) get-pair-type)
-				((pair-count) get-pair-count)
-				((get-pair) get-pair)
-				((get-count) get-count)
-				((make-pair) make-pair)
-				((left-element) get-left-element)
-				((right-element) get-right-element)
-				((left-wildcard) get-left-wildcard)
+				((left-type)      get-left-type)
+				((right-type)     get-right-type)
+				((pair-type)      get-pair-type)
+				((pair-count)     get-pair-count)
+				((get-pair)       get-pair)
+				((get-count)      get-count)
+				((make-pair)      make-pair)
+				((left-element)   get-left-element)
+				((right-element)  get-right-element)
+				((left-wildcard)  get-left-wildcard)
 				((right-wildcard) get-right-wildcard)
-				((wild-wild) get-wild-wild)
-				((fetch-pairs) fetch-pseudo-csets)
-				((provides) (lambda (symb) #f))
-				((filters?) (lambda () #f))
+				((wild-wild)      get-wild-wild)
+				((fetch-pairs)    fetch-pseudo-csets)
+				((provides)       (lambda (meth) #f))
+				((filters?)       (lambda () #f))
 				(else (error "Bad method call on pseudo-cset:" message)))
 			args)))
 )

@@ -66,7 +66,7 @@
 ;   many word-pairs are not explored, although cross-frequency compares
 ;   can be forced by restarting the algo.
 ;
-; One restart, all of the algos suffer from a common problem: they create
+; On restart, all of the algos suffer from a common problem: they create
 ; an ordered list of words by frequency; however, this is computed from
 ; the marginals for the words, which are no longer accurate.  Thus, the
 ; marginals (holding frequencies) should be recomputed before each
@@ -482,7 +482,7 @@
 							; (this is a database-delete).
 							(for-each
 								(lambda (unfake)
-									(cog-delete (Member unfake *-greedy-anchor-*)))
+									(cog-delete! (Member unfake *-greedy-anchor-*)))
 								(got-done FAKE-CLS-LST new-cls))
 
 							; If anything from the done-list was merged, then
@@ -742,7 +742,7 @@
 		(format #t "Trimmed in ~5F seconds\n"
 			(* 1.0e-9 (- (get-internal-real-time) tr-start)))
 
-		(format #t "After triming, ~A words left, out of ~A\n"
+		(format #t "After trimming, ~A words left, out of ~A\n"
 			(length trimed-words) (length WRD-LST))
 
 		(let* ((ra-start (get-internal-real-time))
@@ -778,7 +778,7 @@
 ; ---------------------------------------------------------------
 ; Main entry points for word-classification,
 ;
-(define-public (gram-classify-pair-wise COS-CUT FRAC MIN-OBS)
+(define-public (gram-classify-pair-wise STARS COS-CUT FRAC MIN-OBS)
 "
   gram-classify-pair-wise COS-CUT FRAC MIN-OBS - Merge words into
   word-classes.
@@ -786,6 +786,9 @@
   Very slow, exhaustive O(N^2) algorithm. Suggest using instead
   `gram-classify-agglo`, `gram-classify-diag-blocks` or
   `gram-classify-greedy` for better performance.
+
+  STARS is the object holding the disjuncts. For example, it could be
+  (add-dynamic-stars (make-pseudo-cset-api)) or perhaps a shape vector.
 
   COS-CUT is the minimum cosine between vectors before a merge is
   considered.  Current recomendation is 0.65.
@@ -797,22 +800,28 @@
   is acceptable; words with fewer observations will be ignored.
 "
 	(define ZIPF 4)
-	(gram-classify classify-pair-wise (make-fuzz COS-CUT FRAC ZIPF MIN-OBS))
+	(gram-classify classify-pair-wise (make-fuzz STARS COS-CUT FRAC ZIPF MIN-OBS))
 )
 
-(define-public (gram-classify-agglo MIN-OBS)
+(define-public (gram-classify-agglo STARS MIN-OBS)
 "
   gram-classify-agglo - Merge words into word-classes.
 
   Conservative O(N^2) algorithm.  Faster than `gram-classify-pair-wise`
   but still slow-ish.  Suggest using instead `gram-classify-diag-blocks`
   or `gram-classify-greedy` for better performance.
+
+  STARS is the object holding the disjuncts. For example, it could be
+  (add-dynamic-stars (make-pseudo-cset-api)) or perhaps a shape vector.
+
+  MIN-OBS is the smallest number of observations of the word that
+  is acceptable; words with fewer observations will be ignored.
 "
 	(define ZIPF 4)
-	(gram-classify agglo-over-words (make-fuzz 0.65 0.3 ZIPF MIN-OBS))
+	(gram-classify agglo-over-words (make-fuzz STARS 0.65 0.3 ZIPF MIN-OBS))
 )
 
-(define-public (gram-classify-diag-blocks MIN-OBS)
+(define-public (gram-classify-diag-blocks STARS MIN-OBS)
 "
   gram-classify-diag-blocks - Merge words into word-classes.
 
@@ -820,12 +829,18 @@
   O(N^2) performance, but may miss optimal clusters. Faster than
   `gram-classify-pair-wise` and `gram-classify-agglo`. However, the
   `gram-classify-greedy` variant is both faster and more accurate.
+
+  STARS is the object holding the disjuncts. For example, it could be
+  (add-dynamic-stars (make-pseudo-cset-api)) or perhaps a shape vector.
+
+  MIN-OBS is the smallest number of observations of the word that
+  is acceptable; words with fewer observations will be ignored.
 "
 	(define ZIPF 4)
-	(gram-classify diag-over-words (make-fuzz 0.65 0.3 ZIPF MIN-OBS))
+	(gram-classify diag-over-words (make-fuzz STARS 0.65 0.3 ZIPF MIN-OBS))
 )
 
-(define-public (gram-classify-greedy-fuzz COS-CUT FRAC MIN-OBS)
+(define-public (gram-classify-greedy-fuzz STARS COS-CUT FRAC MIN-OBS)
 "
   gram-classify-greedy-fuzz - Merge words into word-classes.
 
@@ -836,6 +851,9 @@
 
   Uses the \"fuzz\" merge algo.
 
+  STARS is the object holding the disjuncts. For example, it could be
+  (add-dynamic-stars (make-pseudo-cset-api)) or perhaps a shape vector.
+
   COS-CUT is the minimum cosine between vectors before a merge is
   considered.  Current recomendation is 0.65.
 
@@ -846,10 +864,10 @@
   is acceptable; words with fewer observations will be ignored.
 "
 	(define ZIPF 4)
-	(gram-classify greedy-over-words (make-fuzz COS-CUT FRAC ZIPF MIN-OBS))
+	(gram-classify greedy-over-words (make-fuzz STARS COS-CUT FRAC ZIPF MIN-OBS))
 )
 
-(define-public (gram-classify-greedy-discrim COSINE MIN-OBS)
+(define-public (gram-classify-greedy-discrim STARS COSINE MIN-OBS)
 "
   gram-classify-greedy-discrim - Merge words into word-classes.
 
@@ -861,6 +879,9 @@
   Uses the \"discriminating\" merge algo: cosine, frac=sigmoid
   See `make-discrim` for detailed documentation.
 
+  STARS is the object holding the disjuncts. For example, it could be
+  (add-dynamic-stars (make-pseudo-cset-api)) or perhaps a shape vector.
+
   COSINE should be the minimum cosine angle acceptable to perform
   a merge on. Currently, 0.5 is recommended.
 
@@ -868,16 +889,19 @@
   is acceptable; words with fewer observations will be ignored.
 "
 	(define ZIPF 4)
-	(gram-classify greedy-over-words (make-discrim COSINE ZIPF MIN-OBS))
+	(gram-classify greedy-over-words (make-discrim STARS COSINE ZIPF MIN-OBS))
 )
 
-(define-public (gram-classify-greedy-disinfo MI MIN-OBS)
+(define-public (gram-classify-greedy-disinfo STARS MI MIN-OBS)
 "
   gram-classify-greedy-disinfo - Merge words into word-classes.
 
   Similar to `gram-classify-greedy-discrim`, but uses MI instead
   of cosine to perform merge decisions and determine a merge fraction.
   See `make-disinfo` for detailed documentation.
+
+  STARS is the object holding the disjuncts. For example, it could be
+  (add-dynamic-stars (make-pseudo-cset-api)) or perhaps a shape vector.
 
   MI should be the minimum MI acceptable to perform a merge on.
   This is dataset dependent; currently, 3.0 is recommended.
@@ -886,7 +910,7 @@
   is acceptable; words with fewer observations will be ignored.
 "
 	(define ZIPF 4)
-	(gram-classify greedy-over-words (make-disinfo MI ZIPF MIN-OBS))
+	(gram-classify greedy-over-words (make-disinfo STARS MI ZIPF MIN-OBS))
 )
 
 ; ---------------------------------------------------------------
