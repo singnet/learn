@@ -15,6 +15,12 @@
 ; described in `gram-classification.scm`. See the `gram-optim.scm` file
 ; for the entropy-maximizing merge implementation.
 ;
+; Although the code keeps talking about words and word-classes, it is
+; (almost) entirely generic, and can merge (cluster) anything. The only
+; place(s) where its not generic is in some progress-report printing,
+; and in the general discussion of what this code does. Otherwise, what
+; to merge, and where to put the merger results are defined by LLOBJ.
+;
 ; Orthogonal merging
 ; ------------------
 ; In this merge strategy, `w` is decomposed into `s` and `t` by
@@ -146,10 +152,15 @@
 ; where cos_min is the minimum cosine acceptable, for any kind of
 ; merging to be performed.
 ;
-; merge-frac
-; ----------
-; Abstraction of the above two merge styles, using a callback function
-; to obtain the merge fraction.
+; start-cluster, merge-into-cluster
+; ---------------------------------
+; Implementation of the common parts of the above merge styles,
+; using callbacks and parameters to obtain the merge fraction.
+; Calls `accumulate-count` to do the column-by-column summing.
+;
+; make-merger
+; -----------
+; High-level wrapper for above. Provides a generic API.
 ;
 ; Parameter choices
 ; -----------------
@@ -167,6 +178,11 @@
 ; that these are actually rather good parameter choices; and surprisingly,
 ; the `merge-discrim` works better than `merge-project`.
 ;
+; TODO
+; ----
+; It might be useful to move the management of the MemberLink's to
+; the `add-cluster-gram` object.
+;
 ; ---------------------------------------------------------------------
 
 (use-modules (srfi srfi-1))
@@ -174,145 +190,136 @@
 
 ; ---------------------------------------------------------------------
 
-(define (merge-row-pairs LLOBJ COLS SING-A SING-B FRAC ZIPF)
+(define (accumulate-count LLOBJ ACC PAIR FRAC NOISE)
 "
-  merge-row-pairs LLOBJ COLS FRAC ZIPF -- Merge two rows into a third row.
+  accumulate-count LLOBJ ACC PAIR FRAC NOISE -- Accumulate count
+    from PAIR into ACC.
 
-  COLS should be a list of three items (three pairs) in the same column
-  of the matrix LLOBJ. The counts on the first two items in the list
-  will be totalled and assigned to the third item; the counts on the
-  first two items will be decremented by the amount each contributed.
+  ACC and PAIR should be two pairs in the matrix LLOBJ. (Usually,
+  they will be in the same row or column, although this code does not
+  assume this.)
 
-  The first or the second item are allowed to be null. If not null,
-  these are assumed to all be in the same column, in that they all
-  return the same value for (LLOBJ 'right-element item))
+  The count on PAIR will be transfered to ACC, with some caveats:
+  If the count on ACC is non-zero, then *all* of the count on PAIR
+  will be transfered (and PAIR will be removed from the database).
 
-  SING-A and SING-B should be #t or #f.
+  If the count on ACC is zero, and the count on PAIR is greater than
+  NOISE (floating-point noise-floor), then only a FRAC of the count
+  will get transfered to ACC. If the count is below the noise floor,
+  then all of it will be transfered over.
 
-  The updated count is stored to the database.
+  Both Atoms, with updated counts, are stored to the database.
 
-  The prototypical use-case has PAIR-A and PAIR-B being two Sections
+  The prototypical use-case has ACC and PAIR being two Sections
   of (word, disjunct) pairs, having the same disjunct but two different
   words. The goal is to merge the two words together into a single
   word-class.
 "
-	(define PAIR-A (first COLS))
-	(define PAIR-B (second COLS))
-	(define PR-ACC (third COLS))
+	; Return #t if the count is effectively zero.
+	; Use an epsilon for rounding errors.
+	(define (is-zero? cnt) (< cnt 1.0e-10))
 
-	; The counts on each, or zero.
-	(define a-cnt (if (null? PAIR-A) 0 (LLOBJ 'get-count PAIR-A)))
-	(define b-cnt (if (null? PAIR-B) 0 (LLOBJ 'get-count PAIR-B)))
+	; The counts on the accumulator and the pair to merge.
+	(define mcnt (LLOBJ 'get-count PAIR))
+	(define acnt (LLOBJ 'get-count ACC))
 
-	; If the other count is zero, take only a FRAC of the count.
-	; But only if we are merging in a word, not a word-class;
-	; we never want to shrink the support of a word-class, here.
-	(define wac (if
-			(and SING-A (null? PAIR-B) (< ZIPF a-cnt))
-			(* FRAC a-cnt) a-cnt))
-	(define wbc (if
-			(and SING-B (null? PAIR-A) (< ZIPF b-cnt))
-			(* FRAC b-cnt) b-cnt))
+	; If the accumulator count is zero, transfer only a FRAC of
+	; the count into the accumulator.
+	(define taper-cnt (if
+			(and (is-zero? acnt) (< NOISE mcnt))
+			(* FRAC mcnt) mcnt))
 
-	; Sum them.
-	(define cnt (+ wac wbc))
+	; Update the count on the donor pair.
+	; If the count is zero or less, delete the donor pair.
+	(define (update-donor-count SECT CNT)
+		(if (is-zero? CNT)
+			(cog-delete! SECT)
+			(begin (set-count SECT CNT) (store-atom SECT))))
 
-	; Update the count on the section.
-	; If the count is zero or less, delete the section.
-	(define (update-section-count SECT CNT)
-		(if (< 1.0e-10 CNT)
-			(begin (set-count SECT CNT) (store-atom SECT))
-			(begin (set-count SECT 0) (cog-delete! SECT))))
-
-	; The cnt can be zero, if FRAC is zero.  Do nothing in this case.
-	(if (< 1.0e-10 cnt)
+	; If there is nothing to transfer over, do nothing.
+	(if (not (is-zero? taper-cnt))
 		(begin
 
-			; The summed counts
-			(set-count PR-ACC cnt)
-			(store-atom PR-ACC) ; save to the database.
+			; The accumulated count
+			(set-count ACC (+ acnt taper-cnt))
+			(store-atom ACC) ; save to the database.
 
-			; Now subtract the counts from the words.
-			; Left side is either a word or a word-class.
-			; If its a word-class, we've already updated
-			; the count.
-			(if (and SING-A (not (null? PAIR-A)))
-				(update-section-count PAIR-A (- a-cnt wac)))
-
-			; Right side is WB and is always a WordNode
-			; In principle, its always a singleton, so the test
-			; is superfluous.
-			(if (and SING-B (not (null? PAIR-B)))
-				(update-section-count PAIR-B (- b-cnt wbc)))
+			; Decrement the equivalent amount from the donor pair.
+			(update-donor-count PAIR (- mcnt taper-cnt))
 		))
 
-	; Return the pair of counts.
-	(cons wac wbc)
+	; Return how much was transfered over.
+	taper-cnt
 )
 
 ; ---------------------------------------------------------------------
 
-(define* (merge-frac LLOBJ FRAC-FN ZIPF WA WB CLS SING-A
-	#:optional (MRG-CON #t))
+(define (merge-section LLOBJ ACC PAIR FRAC NOISE MRG-CON)
 "
-  merge-frac LLOBJ FRAC-FN ZIPF WA WB CLS SING-A MRG-CON --
-     merge the rows WA and WB of LLOBJ into a combined row.
-     Returns the merged class.
+prototype
+"
+	(define (stuff)
+		(accumulate-count LLOBJ ACC PAIR FRAC NOISE))
+
+	(if MRG-CON (stuff) (accumulate-count LLOBJ ACC PAIR FRAC NOISE))
+)
+
+; ---------------------------------------------------------------------
+
+(define (start-cluster LLOBJ CLS WA WB FRAC-FN NOISE MRG-CON)
+"
+  start-cluster LLOBJ CLS WA WB FRAC-FN NOISE MRG-CON --
+     Start a new cluster by merging rows WA and WB of LLOBJ into a
+     combined row CLS.
 
   In the prototypical use case, each row corresponds to a WordNode,
   and the result of summing them results in a WordClassNode. Thus,
   by convention, it is assumed that the pairs are (word, disjunct)
-  pairs, and LLOBJ was made by `make-gram-class-api` or by
+  pairs, and LLOBJ was made by `make-pseudo-cset-api` or by
   `add-shape-vec-api`. The code itself is generic, and may work on
   other kinds of LLOBJ's too.
-
-  This assumes that storage is connected; the updated counts for the
-  rows are written to storage.
 
   XXX At this time, this does not merge connectors within shapes.
 
   LLOBJ is used to access pairs.
-  WA should be of `(LLOBJ 'left-type)` or be of CLASS-TYPE (that is,
-     either a WordNode or a WordClassNode.)
-  WB is expected to be `(LLOBJ 'left-type)` (a WordNode).
+  WA and WB should both be of `(LLOBJ 'left-type)`. They should
+     designate two different rows in LLOBJ that will be merged,
+     column-by-column.
+  CLS denotes a new row in LLOBJ, that will contain the merged counts.
+     MemberLinks will be created from WA and WB to CLS.
   FRAC-FN should be a function taking WA and WB as arguments, and
      returning a floating point number between zero and one, indicating
      the fraction of a non-shared count to be used.
      Returning 1.0 gives the sum of the union of supports;
      Returning 0.0 gives the sum of the intersection of supports.
-  ZIPF is the smallest observation count, below which counts
-     will not be divided up, if a merge is performed. (All of the
-     count will be merged, when it is less than ZIPF)
-  SING-A indicates how merging is to be done.
-     XXX FIXME describe what is done.
+  NOISE is the smallest observation count, below which counts will
+     not be divided up, when the merge is performed. (All of the
+     count will be merged, when it is less than NOISE)
 
-  The merger of WA and WB are performed, using the 'projection
+  The merger of rows WA and WB are performed, using the 'projection
   merge' strategy described above. To recap, this is done as follows.
-  If WA and WB are both `(LLOBJ 'left-type)` (i.e. are WordNodes),
-  then a CLASS-TYPE (a WordClass) is created, having both WA and WB
-  as members (via MemberLink).  Counts are then transferred from WA
-  and WB to the class; subtotal contributions to the count are stored
-  on the MemberLink.
+  If counts on a given column of both WA and WB are non-zero, they are
+  summed, and the total is placed on the matching column of CLS. The
+  contributing columns are removed (as thier count is now zero).
+  If one is zero, and the other is not, then only a FRAC of the count
+  is transfered.
 
-  The counts are summed only if both counts are non-zero. Otherwise,
-  only a FRAC fraction of a single, unmatched count is transferred.
+  Accumulated row totals are stored in the two MemberLinks that attach
+  WA and WB to CLS.
 
-  If the result leaves a pair with a count of zero, that pair
-  is deleted.  This assumes that storage is connected; the updated
-  pair is written to storage.
-
-  If WA is of CLASS-TYPE (e.g. a WordClassNode), and WB is not, then
-  WB is merged into WA. That is, the counts on WA are adjusted only
-  upwards, and those on WB only downwards.
+  This assumes that storage is connected; the updated counts are written
+  to storage.
 "
 	; set-count ATOM CNT - Set the raw observational count on ATOM.
 	; XXX FIXME there should be a set-count on the LLOBJ...
 	; Strange but true, there is no setter, currently!
 	(define (set-count ATOM CNT) (cog-set-tv! ATOM (CountTruthValue 1 0 CNT)))
 
+	(define monitor-rate (make-rate-monitor))
+
 	; Accumulated counts for the two.
-	(define accum-lcnt 0)
-	(define accum-rcnt 0)
+	(define accum-acnt 0)
+	(define accum-bcnt 0)
 
 	; Fraction of non-overlapping disjuncts to merge
 	(define frac-to-merge (FRAC-FN WA WB))
@@ -323,71 +330,168 @@
 	(define ptu (add-tuple-math LLOBJ bogus))
 
 	; A list of pairs of sections to merge.
+	; This is a list of pairs of columns from LLOBJ, where either
+	; one or the other or both rows have non-zero elements in them.
 	(define perls (ptu 'right-stars (list WA WB)))
 
-	(define trips
-		(map
-			(lambda (PRL)
-				(define PAIR-A (first PRL))
-				(define PAIR-B (second PRL))
-
-				; The column (the right side). Both PAIR-A and
-				; PAIR-B are in the same column. Just get it.
-				(define col (if (null? PAIR-A)
-						(LLOBJ 'right-element PAIR-B)
-						(LLOBJ 'right-element PAIR-A)))
-
-				; The place where the merge counts should be written
-				(define mrg (LLOBJ 'make-pair CLS col))
-
-				; Create a triple.
-				(list PAIR-A PAIR-B mrg)
-			)
-		perls))
-
-	; Perform the merge.
-	(define monitor-rate (make-rate-monitor))
 	(for-each
-		(lambda (ITL)
-			(define counts
-				(merge-row-pairs LLOBJ ITL SING-A #t frac-to-merge ZIPF))
-			; Accumulate the counts, handy for tracking membership fraction
-			(set! accum-lcnt (+ accum-lcnt (car counts)))
-			(set! accum-rcnt (+ accum-rcnt (cdr counts)))
-			(monitor-rate #f))
-		trips)
+		(lambda (PRL)
+			(define PAIR-A (first PRL))
+			(define PAIR-B (second PRL))
+
+			(define null-a (null? PAIR-A))
+			(define null-b (null? PAIR-B))
+
+			; The target into which to accumulate counts. This is
+			; an entry in the same column that PAIR-A and PAIR-B
+			; are in. (TODO maybe we could check that both PAIR-A
+			; and PAIR-B are in the same column.)
+			(define col (if null-a
+					(LLOBJ 'right-element PAIR-B)
+					(LLOBJ 'right-element PAIR-A)))
+
+			; The place where the merge counts should be written
+			(define mrg (LLOBJ 'make-pair CLS col))
+
+			(define (do-acc CNT PR WEI)
+				(set! CNT (+ CNT
+						(merge-section LLOBJ mrg PR WEI NOISE MRG-CON))))
+
+			; Now perform the merge. Overlapping entries are
+			; completely merged (frac=1.0). Non-overlapping ones
+			; contribute only FRAC.
+			(monitor-rate #f)
+			(cond
+				(null-a (do-acc accum-bcnt PAIR-B frac-to-merge))
+				(null-b (do-acc accum-acnt PAIR-A frac-to-merge))
+				(else ; AKA (not (or null-a null-b))
+					(begin
+						(do-acc accum-acnt PAIR-A 1.0)
+						(do-acc accum-bcnt PAIR-B 1.0))))
+		)
+		perls)
 
 	(monitor-rate
-		"---------Merged ~A sections in ~5F secs; ~6F scts/sec\n")
+		"------ Create: Merged ~A sections in ~5F secs; ~6F scts/sec\n")
 
 	; Clobber the left and right caches; the cog-delete! changed things.
 	(LLOBJ 'clobber)
 
 	; Create and store MemberLinks.
-	(if SING-A
-		(let ((ma (MemberLink WA CLS))
-				(mb (MemberLink WB CLS)))
-			; Track the number of word-observations moved from
-			; the words, to the class. This is how much the words
-			; contributed to the class.
-			(set-count ma accum-lcnt)
-			(set-count mb accum-rcnt)
-			; Put the two words into the new word-class.
-			(store-atom ma)
-			(store-atom mb))
+	(let ((ma (MemberLink WA CLS))
+			(mb (MemberLink WB CLS)))
 
-		; If WA is not a WordNode, assume its a WordClassNode.
-		; The process is similar, but slightly altered.
-		; We assume that WB is a WordNode, but perform no safety
-		; checking to verify this.
-		(let ((mb (MemberLink WB CLS)))
-			(set-count mb accum-rcnt)
-			; Add WB to the mrg-class (which is WA already)
-			(store-atom mb))
-	)
+		; Track the number of observations moved from the two items
+		; into the combined class. This tracks the individual
+		; contributions.
+		(set-count ma accum-acnt)
+		(set-count mb accum-bcnt)
 
-	; Return the word-class
-	CLS
+		; Put the two words into the new word-class.
+		(store-atom ma)
+		(store-atom mb))
+)
+
+; ---------------------------------------------------------------------
+
+(define (merge-into-cluster LLOBJ CLS WA FRAC-FN NOISE MRG-CON)
+"
+  merge-into-cluster LLOBJ CLS WA FRAC-FN NOISE MRG-CON --
+     Merge WA into cluster CLS. These are two rows in LLOBJ,
+     the merge is done column-by-column. A memberLink from
+     WA to CLS will be created.
+
+  See start-cluster for addtional details.
+
+  LLOBJ is used to access pairs.
+  WA should be of `(LLOBJ 'left-type)`
+  CLS should be interpretable as a row in LLOBJ.
+
+  FRAC-FN should be a function taking CLS and WA as arguments, and
+     returning a floating point number between zero and one, indicating
+     the fraction of a non-shared count to be used.
+     Returning 1.0 gives the sum of the union of supports;
+     Returning 0.0 gives the sum of the intersection of supports.
+  NOISE is the smallest observation count, below which counts will
+     not be divided up, when the merge is performed. (All of the
+     count will be merged, when it is less than NOISE)
+
+  The merger of row WA into CLS is performed, using the 'projection
+  merge' strategy described above. To recap, this is done as follows.
+  If counts on a given column of both CLS and WA are non-zero, then
+  all of the count from WA is transfered to CLS. That column in WA
+  is removed (as it's count is now zero). If the count on CLS is zero,
+  then only a FRAC of WA's count is transfered.
+
+  Accumulated row totals are stored in the MemberLink that attaches
+  WA to CLS.
+
+  This assumes that storage is connected; the updated counts are written
+  to storage.
+"
+	; set-count ATOM CNT - Set the raw observational count on ATOM.
+	; XXX FIXME there should be a set-count on the LLOBJ...
+	; Strange but true, there is no setter, currently!
+	(define (set-count ATOM CNT) (cog-set-tv! ATOM (CountTruthValue 1 0 CNT)))
+
+	; Accumulated count.
+	(define accum-cnt 0)
+
+	; Fraction of non-overlapping disjuncts to merge
+	(define frac-to-merge (FRAC-FN CLS WA))
+
+	; Use the tuple-math object to provide a pair of rows that
+	; are aligned with one-another.
+	(define (bogus a b) (format #t "Its ~A and ~A\n" a b))
+	(define ptu (add-tuple-math LLOBJ bogus))
+
+	(define monitor-rate (make-rate-monitor))
+
+	; A list of pairs of sections to merge.
+	; This is a list of pairs of columns from LLOBJ, where either
+	; one or the other or both rows have non-zero elements in them.
+	(define perls (ptu 'right-stars (list CLS WA)))
+
+	(for-each
+		(lambda (PRL)
+			(define PAIR-C (first PRL))
+			(define PAIR-A (second PRL))
+
+			(define (do-acc PRC WEI)
+				(monitor-rate #f)
+				(set! accum-cnt (+ accum-cnt
+						(merge-section LLOBJ PRC PAIR-A WEI NOISE MRG-CON))))
+
+			; There's nothing to do if A is empty.
+			(when (not (null? PAIR-A))
+
+				; Two different tasks, depending on whether PAIR-C
+				; exists or not - we merge all, or just some.
+				(if (null? PAIR-C)
+
+					; pare-c is the non-null version of PAIR-C
+					; We accumulate a fraction of PAIR-A into it.
+					(let* ((col (LLOBJ 'right-element PAIR-A))
+							(pare-c (LLOBJ 'make-pair CLS col)))
+						(do-acc pare-c frac-to-merge))
+
+					; PAIR-C exists already. Merge 100% of A into it.
+					(do-acc PAIR-C 1.0))
+			))
+		perls)
+
+	(monitor-rate
+		"------ Extend: Merged ~A sections in ~5F secs; ~6F scts/sec\n")
+
+	; Clobber the left and right caches; the cog-delete! changed things.
+	(LLOBJ 'clobber)
+
+	; Create and store a MemberLink.
+	(let ((ma (MemberLink WA CLS)))
+
+		; Track the number of observations moved from WA to the class.
+		(set-count ma accum-cnt)
+		(store-atom ma))
 )
 
 ; ---------------------------------------------------------------
@@ -414,9 +518,6 @@
 
 	(define (report-progress)
 		(let* (
-; (foo (format #t "Start distance ~A \"~A\" -- \"~A\"\n"
-; (if (eq? 'WordNode (cog-type WORD-A)) "word" "class")
-; (cog-name WORD-A) (cog-name WORD-B)))
 				(start-time (get-internal-real-time))
 				(sim (SIM-FUNC WORD-A WORD-B))
 				(now (get-internal-real-time))
@@ -445,17 +546,83 @@
 
 ; ---------------------------------------------------------------
 
-; Create a new word-class out of the two words.
-; Concatenate the string names to get the class name.
-; If WA is already a word-class, just use it as-is.
-(define (make-word-class WA WB SING)
-	(if SING
-		(cog-new-node 'WordClass (string-concatenate
-					(list (cog-name WA) " " (cog-name WB))))
-		WA)
+(define (make-merger STARS MPRED FRAC-FN NOISE MIN-CNT STORE MRG-CON)
+"
+  make-merger -- Do projection-merge, with ...
+
+  Uses the `merge-project` merge style.
+
+  STARS is the object holding the disjuncts. For example, it could
+  be (add-dynamic-stars (make-pseudo-cset-api))
+
+  NOISE is the smallest observation count, below which counts
+  will not be divided up, if a marge is performed.
+
+  MIN-CNT is the minimum count (l1-norm) of the observations of
+  disjuncts that a word is allowed to have, to even be considered.
+
+  STORE is an extra function called, to store additional needed data.
+"
+	(define pss (add-support-api STARS))
+	(define psu (add-support-compute STARS))
+
+	; Return a WordClassNode that is the result of the merge.
+	(define (merge WA WB)
+		(define single (not (eq? (STARS 'cluster-type (cog-type WA)))))
+		(define cls (STARS 'make-cluster WA WB))
+
+		; Cluster - either create a new cluster, or add to an existing
+		; one. Afterwards, need to recompute the marginals. This is so
+		; that future similarity judgements work correctly. This is
+		; because the mergers altered the counts, and so the marginals
+		; are wrong. (Well, they're wrong only for WA, WB and cls,
+		; whereas clobber clobbers everything. Oh well. Its hard.)
+		; The results are stored, so that everything is on disk in
+		; of a restart.
+		; Clobber first, since Sections were probably deleted.
+		(if single
+			(begin
+				(start-cluster psu cls WA WB FRAC-FN NOISE MRG-CON)
+				(psu 'clobber)
+				(store-atom (psu 'set-right-marginals cls))
+				(STORE cls)
+			)
+			(begin
+				(merge-into-cluster psu WA WB FRAC-FN NOISE MRG-CON)
+				(psu 'clobber)
+			))
+
+		(store-atom (psu 'set-right-marginals WA))
+		(store-atom (psu 'set-right-marginals WB))
+
+		(STORE WA)
+		(STORE WB)
+
+		cls
+	)
+
+	(define (is-small-margin? WORD)
+		(< (pss 'right-count WORD) MIN-CNT))
+
+	(define (is-small? WORD)
+		(< (psu 'right-count WORD) MIN-CNT))
+
+	; ------------------
+	; Methods on this class.
+	(lambda (message . args)
+		(case message
+			((merge-predicate)  (apply MPRED args))
+			((merge-function)   (apply merge args))
+			((discard-margin?)  (apply is-small-margin? args))
+			((discard?)         (apply is-small? args))
+			((clobber)          (begin (STARS 'clobber) (psu 'clobber)))
+			(else               (apply STARS (cons message args)))
+		))
 )
 
-(define (make-fuzz STARS CUTOFF UNION-FRAC ZIPF MIN-CNT)
+; ---------------------------------------------------------------
+
+(define (make-fuzz STARS CUTOFF UNION-FRAC NOISE MIN-CNT)
 "
   make-fuzz -- Do projection-merge, with a fixed merge fraction.
 
@@ -470,63 +637,25 @@
   UNION-FRAC is the fixed fraction of the union-set of the disjuncts
   that will be merged.
 
-  ZIPF is the smallest observation count, below which counts
+  NOISE is the smallest observation count, below which counts
   will not be divided up, if a marge is performed.
 
   MIN-CNT is the minimum count (l1-norm) of the observations of
   disjuncts that a word is allowed to have, to even be considered.
 "
-	(let* ((psa STARS)
-			(pss (add-support-api psa))
-			(psu (add-support-compute psa))
-			(pcos (add-pair-cosine-compute psa))
-		)
-		(define (get-cosine wa wb) (pcos 'right-cosine wa wb))
-		(define (mpred WORD-A WORD-B)
-			(is-similar? get-cosine CUTOFF WORD-A WORD-B))
+	(define pcos (add-pair-cosine-compute STARS))
+	(define (get-cosine wa wb) (pcos 'right-cosine wa wb))
+	(define (mpred WORD-A WORD-B)
+		(is-similar? get-cosine CUTOFF WORD-A WORD-B))
 
-		(define (fixed-frac WA WB) UNION-FRAC)
+	(define (fixed-frac WA WB) UNION-FRAC)
 
-		; Return a WordClassNode that is the result of the merge.
-		(define (merge WORD-A WORD-B)
-			(define single (not (eq? 'WordClass (cog-type WORD-A))))
-			(define cls (make-word-class WORD-A WORD-B single))
-			(merge-frac pcos fixed-frac ZIPF WORD-A WORD-B cls single)
-
-			; Need to recompute the marginals, in order for future
-			; cosine evaluations to work correctly.  We also store this,
-			; so that restarts can see the correct values.  Recall
-			; that merge-frac also updates storage...
-			; Clobber first, since Sections were probably deleted.
-			(psa 'clobber)
-			(store-atom (psu 'set-right-marginals WORD-A))
-			(store-atom (psu 'set-right-marginals WORD-B))
-			(store-atom (psu 'set-right-marginals cls))
-			cls
-		)
-
-		(define (is-small-margin? WORD)
-			(< (pss 'right-count WORD) MIN-CNT))
-
-		(define (is-small? WORD)
-			(< (psu 'right-count WORD) MIN-CNT))
-
-		; ------------------
-		; Methods on this class.
-		(lambda (message . args)
-			(case message
-				((merge-predicate)  (apply mpred args))
-				((merge-function)   (apply merge args))
-				((discard-margin?)  (apply is-small-margin? args))
-				((discard?)         (apply is-small? args))
-				((clobber)          (begin (psa 'clobber) (psu 'clobber)))
-				(else               (apply psa (cons message args)))
-			)))
+	(make-merger STARS mpred fixed-frac NOISE MIN-CNT (lambda (x) #f) #t)
 )
 
 ; ---------------------------------------------------------------
 
-(define (make-discrim STARS CUTOFF ZIPF MIN-CNT)
+(define (make-discrim STARS CUTOFF NOISE MIN-CNT)
 "
   make-discrim -- Do a \"discriminating\" merge. When a word is to be
   merged into a word class, the fraction to be merged will depend on
@@ -549,67 +678,30 @@
   CUTOFF is the min acceptable cosine, for words to be considered
   mergable.
 
-  ZIPF is the smallest observation count, below which counts
+  NOISE is the smallest observation count, below which counts
   will not be divided up, if a merge is performed.
 
   MIN-CNT is the minimum count (l1-norm) of the observations of
   disjuncts that a word is allowed to have, to even be considered.
 "
-	(let* ((psa STARS)
-			(pss (add-support-api psa))
-			(psu (add-support-compute psa))
-			(pcos (add-pair-cosine-compute psa))
-		)
-		(define (get-cosine wa wb) (pcos 'right-cosine wa wb))
-		(define (mpred WORD-A WORD-B)
-			(is-similar? get-cosine CUTOFF WORD-A WORD-B))
+	(define pcos (add-pair-cosine-compute STARS))
+	(define (get-cosine wa wb) (pcos 'right-cosine wa wb))
+	(define (mpred WORD-A WORD-B)
+		(is-similar? get-cosine CUTOFF WORD-A WORD-B))
 
-		; The fractional amount to merge will be proportional
-		; to the cosine between them. The more similar they are,
-		; the more they are merged together.
-		(define (cos-fraction WA WB)
-			(define cosi (pcos 'right-cosine WA WB))
-			(/ (- cosi CUTOFF)  (- 1.0 CUTOFF)))
+	; The fractional amount to merge will be proportional
+	; to the cosine between them. The more similar they are,
+	; the more they are merged together.
+	(define (cos-fraction WA WB)
+		(define cosi (pcos 'right-cosine WA WB))
+		(/ (- cosi CUTOFF)  (- 1.0 CUTOFF)))
 
-		; Return a WordClassNode that is the result of the merge.
-		(define (merge WORD-A WORD-B)
-			(define single (not (eq? 'WordClass (cog-type WORD-A))))
-			(define cls (make-word-class WORD-A WORD-B single))
-			(merge-frac pcos cos-fraction ZIPF WORD-A WORD-B cls single)
-			; Need to recompute the marginals, in order for future
-			; cosine evaluations to work correctly.  We also store this,
-			; so that restarts can see the correct values.  Recall
-			; that merge-frac also updates storage...
-			; Clobber first, since Sections were probably deleted.
-			(psa 'clobber)
-			(store-atom (psu 'set-right-marginals WORD-A))
-			(store-atom (psu 'set-right-marginals WORD-B))
-			(store-atom (psu 'set-right-marginals cls))
-			cls
-		)
-
-		(define (is-small-margin? WORD)
-			(< (pss 'right-count WORD) MIN-CNT))
-
-		(define (is-small? WORD)
-			(< (psu 'right-count WORD) MIN-CNT))
-
-		; ------------------
-		; Methods on this class.
-		(lambda (message . args)
-			(case message
-				((merge-predicate)  (apply mpred args))
-				((merge-function)   (apply merge args))
-				((discard-margin?)  (apply is-small-margin? args))
-				((discard?)         (apply is-small? args))
-				((clobber)          (begin (psa 'clobber) (psu 'clobber)))
-				(else               (apply psa (cons message args)))
-			)))
+	(make-merger STARS mpred cos-fraction NOISE MIN-CNT (lambda (x) #f) #t)
 )
 
 ; ---------------------------------------------------------------
 
-(define (make-disinfo STARS CUTOFF ZIPF MIN-CNT)
+(define (make-disinfo STARS CUTOFF NOISE MIN-CNT)
 "
   make-disinfo -- Do a \"discriminating\" merge, using MI for
   similarity.
@@ -624,82 +716,46 @@
   CUTOFF is the min acceptable MI, for words to be considered
   mergable.
 
-  ZIPF is the smallest observation count, below which counts
+  NOISE is the smallest observation count, below which counts
   will not be divided up, if a merge is performed.
 
   MIN-CNT is the minimum count (l1-norm) of the observations of
   disjuncts that a word is allowed to have, to even be considered.
 "
-	(let* ((dsa STARS)
-			(pss (add-support-api dsa))
-			(psu (add-support-compute dsa))
-			(pmi (add-symmetric-mi-compute dsa))
-			(pti (add-transpose-api dsa))
-			(ptc (add-transpose-compute dsa))
-		)
+	(define pss (add-support-api STARS))
+	(define pmi (add-symmetric-mi-compute STARS))
+	(define pti (add-transpose-api STARS))
+	(define ptc (add-transpose-compute STARS))
 
-		(define (get-mi wa wb) (pmi 'mmt-fmi wa wb))
-		(define (mpred WORD-A WORD-B)
-			(is-similar? get-mi CUTOFF WORD-A WORD-B))
+	(define (get-mi wa wb) (pmi 'mmt-fmi wa wb))
+	(define (mpred WORD-A WORD-B)
+		(is-similar? get-mi CUTOFF WORD-A WORD-B))
 
-		(define total-mmt-count (pti 'total-mmt-count))
-		(define ol2 (/ 1.0 (log 2.0)))
-		(define (log2 x) (* (log x) ol2))
+	(define total-mmt-count (pti 'total-mmt-count))
+	(define ol2 (/ 1.0 (log 2.0)))
+	(define (log2 x) (* (log x) ol2))
 
-		; The self-MI is just the same as (get-mi wrd wrd).
-		; The below is faster than calling `get-mi`; it uses
-		; cached values. Still, it would be better if we
-		; stored a cached self-mi value.
-		(define (get-self-mi wrd)
-			(define len (pss 'right-length wrd))
-			(define mmt (pti 'mmt-count wrd))
-			(log2 (/ (* len len total-mmt-count) (* mmt mmt))))
+	; The self-MI is just the same as (get-mi wrd wrd).
+	; The below is faster than calling `get-mi`; it uses
+	; cached values. Still, it would be better if we
+	; stored a cached self-mi value.
+	(define (get-self-mi wrd)
+		(define len (pss 'right-length wrd))
+		(define mmt (pti 'mmt-count wrd))
+		(log2 (/ (* len len total-mmt-count) (* mmt mmt))))
 
-		; The fraction to merge is a linear ramp, starting at zero
-		; at the cutoff, and ramping up to one when these are very
-		; similar.
-		(define (mi-fraction WA WB)
-			(define milo (min (get-self-mi WA) (get-self-mi WB)))
-			(define fmi (get-mi WA WB))
-			(/ (- fmi CUTOFF) (- milo CUTOFF)))
+	; The fraction to merge is a linear ramp, starting at zero
+	; at the cutoff, and ramping up to one when these are very
+	; similar.
+	(define (mi-fraction WA WB)
+		(define milo (min (get-self-mi WA) (get-self-mi WB)))
+		(define fmi (get-mi WA WB))
+		(/ (- fmi CUTOFF) (- milo CUTOFF)))
 
-		; Return a WordClassNode that is the result of the merge.
-		(define (merge WORD-A WORD-B)
-			(define single (not (eq? 'WordClass (cog-type WORD-A))))
-			(define cls (make-word-class WORD-A WORD-B single))
-			(merge-frac pmi mi-fraction ZIPF WORD-A WORD-B cls single)
-			; Need to recompute the marginals, in order for future
-			; MI evaluations to work correctly.  We also store this,
-			; so that restarts can see the correct values.  Recall
-			; that merge-frac also updates storage...
-			; Clobber first, since Sections were probably deleted.
-			(dsa 'clobber)
-			(psu 'set-right-marginals WORD-A)
-			(psu 'set-right-marginals WORD-B)
-			(psu 'set-right-marginals cls)
-			(store-atom (ptc 'set-mmt-marginals WORD-A))
-			(store-atom (ptc 'set-mmt-marginals WORD-B))
-			(store-atom (ptc 'set-mmt-marginals cls))
-			cls
-		)
+	(define (store-mmt row)
+		(store-atom (ptc 'set-mmt-marginals row)))
 
-		(define (is-small-margin? WORD)
-			(< (pss 'right-count WORD) MIN-CNT))
-
-		(define (is-small? WORD)
-			(< (psu 'right-count WORD) MIN-CNT))
-
-		; ------------------
-		; Methods on this class.
-		(lambda (message . args)
-			(case message
-				((merge-predicate)  (apply mpred args))
-				((merge-function)   (apply merge args))
-				((discard-margin?)  (apply is-small-margin? args))
-				((discard?)         (apply is-small? args))
-				((clobber)          (begin (dsa 'clobber) (psu 'clobber)))
-				(else               (apply dsa (cons message args)))
-			)))
+	(make-merger pmi mpred mi-fraction NOISE MIN-CNT store-mmt #t)
 )
 
 ; ---------------------------------------------------------------
@@ -734,7 +790,7 @@
 ; Perform the actual merge
 ; (define (frac WA WB) 0.3)
 ; (define cls (WordClass "city-village"))
-; (merge-frac pcos frac 4 (Word "city") (Word "village") cls #t)
+; (start-cluster psa cls (Word "city") (Word "village") frac 4.0 #t)
 ;
 ; Verify presence in the database:
 ; select count(*) from atoms where type=22;

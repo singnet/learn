@@ -1,8 +1,11 @@
 Learning
 ========
 The "big ideas" describe how this project thinks about the world.
+The "medium ideas" describe the basic algorithm being used.
 The "small ideas" describe what has been implemented and is doable
-(has been done) with the current technology and code base.
+(has been done) with the current technology and code base. Current focus
+is on language; we're loooking for collaborators on image recognition
+and/or movement classification.
 
 The Big Idea - Knowledge
 ------------------------
@@ -28,7 +31,7 @@ shapes that follow from the syntax/grammar. The *meaning* or the
 
 This project takes the above to be the structure of ***knowledge*** and
 ***meaning***. Stronger and more detailed arguments for why this is the
-correct defintion of "knowledge" and "meaning", together with concrete
+correct definition of "knowledge" and "meaning", together with concrete
 definitions, details and examples are provided by the PDF's in the
 [AtomSpace "sheaf" directory](https://github.com/opencog/atomspace/tree/master/opencog/sheaf/docs).
 
@@ -66,7 +69,7 @@ graph***, or olde-school "symbolic AI". This is in contrast to neural nets
 and deep learning, where knowledge is encoded in a dense graph, the
 network connectivity graph of weight matrices, vectors and the like.
 The deep learning industry has plenty of folks working on it. It's
-a multi-billion-dollar industry. We are not competing with that behemouth.
+a multi-billion-dollar industry. We are not competing with that behemoth.
 The goal of this project is to move forward on sparse-graph knowledge
 representation. (Note however: some parts of sparse graphs are densely
 connected, and, for those parts, deep-learning type structures may be
@@ -75,6 +78,7 @@ elsewhere. The heading for that discussion is "matrix factorization",
 or rather, "sparse matrix factorization.")
 
 This is an ongoing project, with continuing if sometimes sporadic activity.
+
 
 The Big Idea - World Models
 ---------------------------
@@ -121,6 +125,191 @@ developed here appear to be promising, and there is no apparent
 impediment in sight, other than perhaps the general scale of the project
 itself.  Plainly, there's a lot of code to write, test, debug, and a
 lot of research and development to be performed.
+
+
+### The Medium Idea
+Part-Whole Hierarchies
+======================
+The above sketch is sufficiently abstract that, while it may be hard to
+disagree with, it may also be hard to figure out how to write code for
+it. Below is a sketch of what is actually done. It involves a recurring
+process of generating vectors (of several different kinds), applying
+similarity measures to those vectors, and then forming clusters or
+classes (or "islands") of similar vectors.  Distance information can be
+used to extract a graphical structure, which is decomposed into nearest
+neighbors, which can then be formed again into vectors. This is used
+to ratchet up a part-whole hierarchy, where parts are distinctly
+identified as "those things that are similar" and the whole-relationship
+is given by the local graphical structure. As icing on the cake, all
+of the above is done with maximum-entropy principles in mind.
+
+The general process is as follows:
+* Make pair-wise observations, counting frequency of occurrences.
+* Interpret pairs as the rows & columns of a matrix: each row and column
+  is a vector. These vectors are extremely high-dimensional and sparse.
+* Obtain pair-wise mutual information (MI). Any distance measure will do,
+  but the information-theoretic ground of maximum entropy principles
+  seems best.
+* Re-observe data, this time using the pair-wise distances to form
+  a spanning tree or spanning graph. The only edges allowed in this
+  graph are those with high MI (i.e. small distance, those that are
+  close to one-another.)
+* Factor the graph into vertexes and their nearest neighbors. This
+  factorization resembles an N-gram or skip-gram: the list of neighbors
+  is that skip-gram.
+* Just as skip-grams can be interpreted as vectors, the same is possible
+  here. The pair (vertex, nearest-neighbors) can be taken as the row
+  and column addresses of a matrix, and the numeric value of that matrix
+  entry is just the number of times that (vertex, neighbor) combination
+  has been observed.
+* Apply similarity measures to the row-vectors of this matrix, and
+  cluster together or agglomerate similar vectors.
+* These clusters are then the desired outcome: these are the classes of
+  similar or identical observations. The next time some sequence of
+  events is observed, it can be classed into one of these classes.
+* Because the classes have (vertex, neighbor) information, they encode
+  a graph. That is, they explicitly encode part-whole relationships.
+  Any given vertex is a "part"; its neighbors determine how it's
+  connected to the "whole".
+
+To obtain hierarchical relationships, one notes that the dimensional
+reduction obtained through clustering can then be used to tackle
+combinatoric explosions and sparse data "at the next level". Thus,
+for example, N-grams/skip-grams are famously high dimensional (e.g.
+for a vocabulary of V = 10K words, there are then (10K)^3 = trillion
+possible 3-grams) By the graphical agglomeration procedure given
+above, this can be reduce to P=100 different "parts of speech"
+(grammatical classes: nouns, adjectives, verbs, transitive verbs, etc.)
+with graphical structure: the encoded graph is much much smaller.
+Now that the data size is manageable, again, the learning process
+can be restarted, this time looking at correlations between sentences,
+between paragraphs, as opposed to correlations between words.  So,
+for example, if a paragraph contains N=100 words, there gives a
+practical for treating that N-gram with N=100, as the (graphical)
+structure of smaller units in that paragraph are now available.
+
+Unsupervised training
+---------------------
+A key difference between the code here, and conventional neural net
+techniques is that all training here is "unsupervised". There are no
+"training sets"; the learning is done entirely by extracting statistical
+regularity from the input stream. In the parlance, it is not "turtles
+all the way down"; but rather "the buck stops here".
+
+This refers to the problem of training in neural nets: the training sets
+are created by expert human markup, usually by grad students. In effect,
+the neural net is only as smart as the grad student who provided the
+training data.  Politically charged examples of this includes facial
+recognition suites that mistreat people of color, as opposed to white
+people. This effect has been termed "turtles all the way down", in
+reference to the idea that the Earth sits on the back of a turtle:
+but what does the turtle sit on? The neural net sits on the back of
+a grad student.
+
+Agglomeration
+-------------
+The current code base implements more-or-less traditional
+high-dimensional agglomerative clustering. It does NOT use 3rd-party
+systems or libraries, for three reasons:
+* Other systems do not handle extremely sparse data efficiently.
+* The high-dimensional data produced here is already in the form of a
+  graph, and is stored in a graph format in the AtomSpace. Copying
+  this data out, and back in again, is wasteful of CPU. It also
+  requires complicated import/export code. The complexity of
+  import/export is about equal to do-it-yourself clustering, so
+  nothing is gained by using 3rd-party tools.
+* The formation of clusters here is not quite as simple as throwing
+  similar labels into buckets.  The vectors have to be merged,
+  basis-element by basis-element, and those vectors encode graphical
+  structure. For example, when one merges (vertex-A, neighbors-of-A)
+  with (vertex-B, neighbors-of-B), it is not enough to merge just
+  A and B, one must also merge (vertex-X, neighbors-of-X) whenever
+  a neighbor-of-X includes A or B. This would require a callback from
+  the clustering code to perform that graphical merge. 3rd-party
+  tools are incapable of such callbacks.
+
+Vectors
+-------
+There are two key differences between the vectors being formed here,
+and the vectors that are commonplace in neural-net learning systems.
+First is that the vectors here are extremely high-dimensional and
+sparse. Second is that vector similarity is NOT judged by cosine angles,
+but by information-theoretic measures.
+
+A short tirade: the neural-net people are probably making a mistake by
+using cosine angles. The cosine is great when a vector lives in a
+Euclidean space, because Euclidean spaces have rotational symmetry.
+But there is no reason to expect neural-net vectors to live in Euclidean
+space, and it is rather silly to force a rotational symmetry onto a
+problem that has none. The problem here is the word "vector".
+
+In conventional mathematics, a "vector" is a collection of (number,
+basis-element) pairs, and exists "naturally" in Euclidean space. But,
+for neural nets, and for the current code base, this collection is
+should be interpreted as a (number-between-zero-and-one, basis-element),
+that is, as a frequency or probability: one should write P(A) as
+the number (probability) at basis element A (event A). The "vectors"
+are actually points in a simplex; and have the structure of a
+sigma-algebra. Whenever a vector has the structure of a sigma algebra,
+it should be interpreted as a probability, and the similarity of two
+vectors is then given by (take your pick) the conditional probability,
+the Kullback-Leibler divergence, the conditional or mutual entropy,
+the mutual information, etc. It is *NOT* given by the dot-product or
+the cosine angle! Note, BTW, that the mutual information does include
+a dot-product inside of it; it just has different normalization factors
+that break Euclidean rotational symmetry, and replace it by maximum
+entropy principles.
+
+N-grams, skip-grams, graph decomposition, grammar
+-------------------------------------------------
+Another major difference between the code here, and conventional
+neural net theory, is that the explicit graphical structure is extracted
+from the data, in the form of graphical nearest-neighbors. Thus, a
+(word, neighboring-words) is the conventional definition of an N-gram.
+If some neighbors are excluded, this is a skip-gram. The present case
+is similar, but with several key distinctions.
+
+**First:** neighbors are determined not by the physical proximity of one
+word to another (how close they are in a sentence), but rather by the
+mutual information between the words. (Here, a "word" can be literally
+a "word", or more generically "some time-series event observed in
+nature".)
+
+**Second:** it is not the raw MI-proximity that counts, but rather, the
+spanning tree or spanning graph that connects vertexes (words). That
+is, in formulating this "graphical skip-gram", one does not just grab
+the nearest neighbors as measured by the distance function. One instead
+attempts to minimize/maximize the distance measure (the entropy) for
+the entire local graph.  This has the effect of discarding (not forming)
+some edges despite those edges being short: it is more important to
+minimize/maximize the local, collective graph, the local connectivity of
+all vertexes, and not just pairs of them.
+
+**Third:** the use of "graphical skip-grams", as described here, provides
+a natural bridge to the concept of syntax and grammar. That is, a
+"graphical skip-gram" is a syntactic element, in a very real and formal
+sense of languages and grammars. This is a foundational, key
+observation, the details of which can be found in 1991 Link Grammar
+papers: Sleator, Temperley, [*"Parsing English with a Link Grammar"*](http://www.cs.cmu.edu/afs/cs.cmu.edu/project/link/pub/www/papers/ps/tr91-196.pdf).
+The earliest mention of these concepts seems to be in a book:
+[*"Algebraic Linguistics; Analytical Models"*](https://monoskop.org/images/2/26/Marcus_Solomon_editor_Algebraic_Linguistics_Analytical_Models_1967.pdf),
+from 1967, by Solomon Marcus (published by Elsevier).
+
+**Fourth:** the result of the agglomerative clustering on feature vectors
+can be interpreted as "types", in the formal type-theoretical sense.
+The Link Grammar "link types" really are types. They are short-hand
+for ideas like S\NP and S/VP found in pregroup grammars, or more
+generally in phrase-structure grammars.  The "learning" being performed
+here does not "just" glom together identical feature vectors; it does
+more: it explains exactly how those feature vectors should be interpreted
+as graphs, and how that graph structure has regularities defined by a
+grammar.
+
+**Fifth:** meaning. There are frequent arguments made that neural nets
+extract "meaning", or that weight vectors can be interpreted as
+"meaning". These arguments carry over into the present case. They
+are strengthened, because the feature vectors are no long "just
+vectors", they are also components of a graph, components of a grammar.
 
 
 ### The Small Idea
@@ -219,6 +408,37 @@ what seemed to be the right answers. However, controlling the rate
 of convergence was a challenge, since measuring the accuracy of the
 results was impossible. We could "eyeball" the accuracy and it "looked
 OK". But "eyeballing it" is not very scientific.
+
+Image recognition
+-----------------
+It seems like the above concepts (from the "medium idea" section) should
+also work "just fine" for images (pixels in images). That's because a
+2D image is "just like" a 1-D stream of words, in that there are obvious
+neighbors, and nearby pixels are correlated. The pixel-pair-MI is a
+stand-in for an edge detector; the minimum-spanning-tree just picks out
+all of the nearby, inter-related image-parts (areas of the image that
+frequently co-occur), and the grammar provides the part-whole hierarchy
+for the image. Thus, it "seems like it should work".
+
+The existing code would choke and be unbearably slow; thus, lots of
+brand-new coded is needed to handle pixels. Interested collaborators
+need to raise thier hands!  This task is suitable for programmers/coders
+familiar with image processing techniques; the more abstract parts of
+the theory should not interfere with the more mundane tasks.  Note,
+however: this is a risky endevour: it seems like it should work, but
+there is no guarantee.  Competing with conventional neural-net
+technology is hard.
+
+A different problem that this framework should be able to tackle is the
+understanding coordinated motion. Consider, for example, the movement of
+football players on a field: based on thier movements, one can predict
+what kind of play might be made. Similarly, the movements of a ballerina
+- the hand, elbow, hip, knee movements are also correlated and can be
+classified into "dance moves". This problem is unlike image recogintion,
+because one is given the positions of the players on the field, or the
+positions of the dancers limbs, rather than being given a 2D pixellated
+image.  Despite these differences, the overall algorithm "should still
+work" on this data. (It seems like it should work! But what do we know?)
 
 Processing Overview
 -------------------
