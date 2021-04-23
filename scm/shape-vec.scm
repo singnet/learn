@@ -127,20 +127,30 @@
 ;
 (define-public (add-shape-vec-api LLOBJ)
 "
-  add-shape-vec-api -- Provide API for CrossSections obtained from
-  Sections. Assumes that LLOBJ provides an API that gives access to
-  Sections.
+  add-shape-vec-api -- Provide API for CrossSections (word-shape pairs
+  that correspond to Sections).  Assumes that LLOBJ provides an API
+  that gives access to Sections.
 
   A more detailed description is at the top of this file.
+
+  In addition to the usual methods, this also provides:
+  'get-section CROSS  -- Create and return the section that corresponds
+       to the CrossSection CROSS.
+
+  'get-cross-sections SECT -- Return all of the CrossSections that
+       cover the Section SECT. This returns only those cross-sections
+       that are already in the AtomSpace; it does not create them.
+
+  'explode-sections -- create all possible CrossSections that correspond
+       to existing Sections (on LLOBJ).  The count on each cross-section
+       will the set to the count on the section. (This is the correct
+       way to handle counts, if one wants clustering to commute with
+       the creation of sections.)
 "
 	(let ((l-basis '())
 			(r-basis '())
 			(l-size 0)
 			(r-size 0)
-
-			; Temporary atomspace
-			(mtx (make-mutex))
-			(aspace (cog-new-atomspace (cog-atomspace)))
 		)
 
 		(define star-wild (Variable "$connector-word"))
@@ -248,6 +258,56 @@
 		)
 
 		; -------------------------------------------------------
+		; Return all of the cross-sections (word-shape pairs) that
+		; correspond to a section. This explodes a section into all
+		; of the word-shape pairs that cover it (in the sense of a
+		; "covering space"). Basically, given a Section, it walks
+		; over the ConnectorSeq inside of it, replaces each word
+		; with a variable (to define the shape) and then gets a pair
+		; consisting of that word, and that shape.
+		;
+		; This only returns those cross-sections that are already
+		; in the AtomSpace; it does NOT create them!
+		;
+		; Conceptually, the shapes (left-stars) are of the form:
+		; (Section (Word "foo") (ConnectorSeq
+		;     (Connector (Word "bar") (ConnectorDir "-"))
+		;     (Connector (Variable $X) (ConnectorDir "-))))
+		; where (Variable $X) is the wildcard.  However, we want to
+		; avoid using both ConnectorSeq and Section directly, because
+		; these pollute the space of data. So, the above gets encoded
+		; as
+		; (Shape (Word "foo")
+		;     (Connector (Word "bar") (ConnectorDir "-"))
+		;     (Connector (Variable $X) (ConnectorDir "-)))
+		; with the left-word "foo" heading up the list.
+		;
+		(define (get-cross-sections SEC)
+			; The root-point of the seed
+			(define point (gar SEC))
+			; The list of connectors
+			(define cncts (cog-outgoing-set (gdr SEC)))
+			(define num-cncts (length cncts))
+
+			; Place the wild-card into the N'th location of the section.
+			(define (insert-wild N)
+				(define front (take cncts N))
+				(define back (drop cncts N))
+				(define ctr (car back)) ; the connector being exploded
+				(define wrd (gar ctr))  ; the word being exploded
+				(define dir (gdr ctr))  ; the direction being exploded
+				(define wild (Connector star-wild dir))
+				(define shape
+					(cog-link 'Shape point front wild (cdr back)))
+				(if (nil? shape) #f
+					(let ((cross (cog-link 'CrossSection wrd shape)))
+						(if (nil? cross) #f cross))))
+
+			; Return all the cross-sections for this section.
+			(filter-map insert-wild (iota num-cncts))
+		)
+
+		; -------------------------------------------------------
 		; Create all of the word-shape pairs that correspond to a
 		; section. This explodes a section into all of the word-shape
 		; pairs that cover it (in the sense of a "covering space").
@@ -271,23 +331,10 @@
 		; viz if the pairs were previously stored, and now have been
 		; fetched with 'fetch-pairs above.
 		;
-		; Conceptually, the shapes (left-stars) are of the form:
-		; (Section (Word "foo") (ConnectorSeq
-		;     (Connector (Word "bar") (ConnectorDir "-"))
-		;     (Connector (Variable $X) (ConnectorDir "-))))
-		; where (Variable $X) is the wildcard.  However, we want to
-		; avoid using both ConnectorSeq and Section directly, because
-		; these pollute the space of data. So, the above gets encoded
-		; as
-		; (Shape (Word "foo")
-		;     (Connector (Word "bar") (ConnectorDir "-"))
-		;     (Connector (Variable $X) (ConnectorDir "-)))
-		; with the left-word "foo" heading up the list.
-		; This can be easily dis-assembled to run actual queries against
-		; the atomspace.
 		(define (explode-sections)
 
-			; Walk over a section, and insert a wild-card.
+			; Walk over a section, and create the matching cross-sections.
+			; Copy the count from the section to each of the cross-secions.
 			(define (explode-section SEC)
 				; The root-point of the seed
 				(define point (gar SEC))
@@ -301,11 +348,6 @@
 				(define weight (cog-tv SEC))
 
 				; Place the wild-card into the N'th location of the section.
-				; Of course, this creates the section, if it does not yet
-				; exist. Well, we don't want to create actual sections; that
-				; would screw up other code that expects sections to not
-				; have wildcards in them. So we are creating ShapeLinks
-				; instead.
 				(define (insert-wild N)
 					(define front (take cncts N))
 					(define back (drop cncts N))
@@ -317,8 +359,7 @@
 						(Shape point front wild (cdr back))
 						weight))
 
-				; Create all the wild-cards for this section.
-				; (map insert-wild (iota num-cncts))
+				; Create all the cross-sections for this section.
 				(for-each insert-wild (iota num-cncts))
 			)
 
@@ -457,16 +498,8 @@ around for a while.
 				(- (current-time) start-time))
 			(set! start-time (current-time))
 			(load-atoms-of-type 'CrossSection)
-			(format #t "Elapsed time to load word-shape pairs: ~A seconds\n"
+			(format #t "Elapsed time to load cross-sections: ~A seconds\n"
 				(- (current-time) start-time))
-
-			; We need to also fetch the shapes. There are two things
-			; we could do here: fetch them from RAM, or just re-create
-			; them. For now, just re-creating them seems to be suficient.
-			; This does lose any kinds of distinct data that may have been
-			; stored on the sections. It also clobbers the counts, and
-			; fails to restore frequencies... is this OK? I'm confused.
-			(explode-sections)
 		)
 
 		;-------------------------------------------
@@ -504,9 +537,10 @@ around for a while.
 				((wild-wild)        get-wild-wild)
 				((fetch-pairs)      fetch-sections)
 
-				; Custom call. These need to be explicitly made.
+				; Custom calls.
 				((explode-sections) explode-sections)
 				((get-section)      get-section)
+				((get-cross-sections) get-cross-sections)
 
 				((provides)         provides)
 				((clobber)          clobber)
@@ -518,9 +552,39 @@ around for a while.
 ))
 
 ; ---------------------------------------------------------------------
+;
+(define-public (add-covering-sections LLOBJ)
+"
+  prototype
+"
+	(define stars-obj (add-pair-stars LLOBJ))
+	(define shape-obj (add-shape-vec-api stars-obj))
+	(define shape-stars (add-pair-stars shape-obj))
+
+	; The direct sum create a flatttened vector that contains both
+	; Sections and Cross-sections.
+	(define cover-obj (direct-sum stars-obj shape-stars))
+	(define cover-stars (add-pair-stars cover-obj))
+
+	; Methods on the object
+	(lambda (message . args)
+		(case message
+			((name)               "Covering Sections for Words")
+			((id)                 "cover-section")
+
+			; pass-through
+			((fetch-pairs)        (shape-obj 'fetch-sections))
+			((explode-sections)   (shape-obj 'explode-sections))
+			((get-section)        (apply shape-obj (cons message args)))
+			((get-cross-sections) (apply shape-obj (cons message args)))
+
+			(else             (apply cover-stars (cons message args)))))
+)
+
+; ---------------------------------------------------------------------
 ; Example usage:
 ;
-; (define cva (add-shape-vec-api (make-pseudo-cset-api)e))
+; (define cva (add-shape-vec-api (make-pseudo-cset-api)))
 ; (cva 'fetch-pairs)
 ; (define cvs (add-pair-stars cva))
 ; (cvs 'left-basis-size)

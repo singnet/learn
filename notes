@@ -853,6 +853,7 @@ Done storing 371515 left-wilds in 1722 secs
 OK, so that's faster than RocksDB, which took 2511 secs
 rocks started out faster, then really slowed down...
 Why?
+.... why? update: the incoming set. After redesign, rocks is faster.
 
 Also, why is the number different?
 
@@ -2826,6 +2827,15 @@ Total Test time (real) = 226.48 sec
 
 
 So its actually faster.
+Remove locks:
+Total Test time (real) = 206.39 sec
+Total Test time (real) = 207.73 sec
+
+Fix leaking iterators: 10fb460556f197efa0effe9b2fe90eae7f892d10
+Total Test time (real) = 184.45 sec
+Total Test time (real) = 186.52 sec
+
+
 
 
 --------------------
@@ -2899,17 +2909,518 @@ Dist=   0.0 for word "WALL" -- "!" in 6.542 secs
 Dist=   0.0 for word "###LEFT-WALL###" -- "!" in 8.203 secs
 Dist=   0.0 for word "LEFT" -- "-" in 9.220 secs
 
-Bug: the class name is not supposed to get longer like that...
+Maxes out at 42GB RAM usage
+6.9GB disk, before compaction
+100 sst files
+106 open DB files
+=== then close the database (but not guile)
+37 open DB files descriptors!!
+100 sst files as before
+6.8GB disk use
+Still 42GB RAM use
+== open the database
+Still 42GB RAM use
+519 MBytes DB disk usage
+13 sst files total
+46 open file desciptors
+== close DB again
+37 open DB file descs as before - these have been leaked.
+13 sst files unchanged
+515 MBytes DB disk use unchanged
+
 Bug: there is not supposed to be WALL and LEFT ...
 I guess this is a corpus bug!? A splitter bug?
-
 Bug: why is there a "-" word ???? wtf?
+
+Wrong corpus used.
+
+--------------------
+start again. expt-18
+
+get checkout https://github.com/facebook/rocksdb
+commit bb75092574532c5629c27dcd99fe55f5514af48c (HEAD -> master, origin/master, origin/HEAD)
+version 6.19
+
+cp -pr fake-corpus-w-wall pair-corpus
+~/src/learn/run/2-word-pairs/run-all.sh
+~/src/learn/run/3-mst-parsing/run-all-mst.sh
+
+cp -pr mpg_parse.rdb shape.rdb
+(define pca (make-pseudo-cset-api))
+(define psa (add-pair-stars pca))
+
+(define wsv (add-shape-vec-api psa))
+(define wss (add-pair-stars wsv))
+
+(define cac (direct-sum psa wss))
+(define csc (add-pair-stars cac))
+(csc 'fetch-pairs)
+
+(define btc (batch-transpose csc))
+(btc 'mmt-marginals)
+(print-matrix-summary-report csc)
+; xx ((make-store csc) 'store-all)  ; ... is this needed? Its slow!
+ ------ its not needed.
+
+cp -pr shape.rdb gram-2-junk.rdb
+(gram-classify-greedy-discrim csc 0.25 4)
+
+log: after word-pairs, rocksdb compressed from
+xxx not measured.
+down to
+ls -la fake_pairs.rdb/*sst |wc  # 4
+du -s fake_pairs.rdb  # 148 M
+
+ls -la mpg_parse.rdb/*sst | wc  # 3
+du -s mpg_parse.rdb # 242 M
+after reopen , compact to 145M
+
+ls -la shape.rdb/*sst | wc  # 10
+lsof -p 18889 | grep sst |wc  # 10
+du -s shape.rdb  # 801 MB
+ps aux |grep guile # 7.36GB virt 4.85 GB rss
+
+(cog-close storage-node)
+no change to RAM
+du -s shape.rdb  # 719 MB so some decrease
+ls -la shape.rdb/*sst | wc # 10 no change
+lsof -p 18889 | grep sst |wc # 3 so its leaking filedescs, still
+
+(cog-open storage-node)
+No change to RAM
+du -s shape.rdb  # 514 MB
+ls -la shape.rdb/*sst | wc # 8
+ls -la shape.rdb/*sst | wc # 11 of which 3 are marked "deleted"
+
+stop guile, start guile, stop guile:
+no change to storage
+ls -la shape.rdb/*sst | wc # 9
+
+OK, greedy-discrim.
+(csc 'fetch-pairs)
+(gc-stats) ;25MB
+ps aux |grep guile # 6.4GB virt, 3.75 GB RSS
+
+(gram-classify-greedy-discrim csc 0.25 4)
+ps aux |grep guile # 37.8GB virt 35.2GB rss
+lsof -p 362 | grep sst |wc # 81
+ls -la gram-1-junk.rdb/*sst |wc  # 81
+du -s gram-1-junk.rdb  # 5.8 GB
+
+(cog-close storage-node)
+du -s gram-1-junk.rdb  # 5.7 GB
+lsof -p 362 | grep sst |wc  # 74 Yow! thats a big leak!
+
+(cog-open storage-node)
+du -s gram-1-junk.rdb  # 606 MB - big shrink
+lsof -p 362 | grep sst |wc  # 91
+ls -la gram-1-junk.rdb/*sst |wc  # 17
+
+options.table_properties_collector_factories.emplace_back(NewCompactOnDeletionCollectorFactory(100, 90, /*deletion_ratio=*/0.5));
+DestroyAndReopen(options);
+
+rocks issues: #3216 #4112 #8041
+
+it's leaking iterators. Fixed in
+10fb460556f197efa0effe9b2fe90eae7f892d10
+
+df: 708513296 before starting gram-classify.
+lsof -p 25951 | grep sst  |wc  # 9
+ls -la gram-2-junk.rdb/*sst |wc # 9
+du -s gram-2-junk.rdb  # 514 MB
+
+after finishing:
+du -s gram-2-junk.rdb  # 1.01 GB
+ps aux |grep guile # 8.5 GB virt 5.6GB rss
+ls -la gram-2-junk.rdb/*sst |wc # 16
+lsof -p 25951 | grep sst  |wc # 16
+
+after cog-close:
+lsof -p 25951 | grep sst  |wc # zero!
+ls -la gram-2-junk.rdb/*sst |wc # 16
+du -s gram-2-junk.rdb  # 927 MB
+
+after cog-open:
+du -s gram-2-junk.rdb  # 1.24 GB
+lsof -p 25951 | grep sst  |wc # 17
+ls -la gram-2-junk.rdb/*sst |wc # 17
+
+after cog-close:
+du -s gram-2-junk.rdb  # 602 MB
+df # 708601988
+
+after exiting guile:
+df # 708601988 -- no change
+
+Perf w/o bloom filters:
+--- To-do=12 ncls=0 sing=0 nredo=0 2021-04-13 12:30:58 -- "e" ---
+--- To-do=0 ncls=4 sing=4 nredo=8 2021-04-13 13:09:18 -- "()" ---
+so 38 minutes.
+
+w/bloom filters:
+--- To-do=12 ncls=0 sing=0 nredo=0 2021-04-13 14:15:51 -- "e" ---
+--- To-do=0 ncls=4 sing=4 nredo=8 2021-04-13 14:54:40 -- "()" ---
+so 39 minutes. No difference.
+
+----------------------------
+Regression: MultiUserUTest
+first bad commit:  b6fb7935a93a99e4f0f5b22c8c15288f2d0c5b2d
+
+the erase in TLB::removeAtom(UUID uuid) is needed for multi-user.
+but it also breaks MultiDelete.
+
+atom is not present...
+because it wasn't stored again, I guess....
+not_yet_stored
+
+_uuid_map is erased.
+
+not_yet_stored might not be needed!?
+Fixed pull req #2810
+
+-----------------------------
+merge-row-pairs - change to two items
+
+merge-frac
+ptu
+
+merge-frac
+make-fuzz vs. make-discrim
+     fixed-frac vs cos-fraction is only diff
+
+make-fuzz vs. make-disinfo
+     mpred differs
+     fraction differs
+
+Start greedy-agglomeration of 12 words
+Existing classes=0 singletons=0 done=0
+--- To-do=12 ncls=0 sing=0 nredo=0 2021-04-13 14:15:51 -- "e" ---
+--- To-do=11 ncls=0 sing=1 nredo=0 2021-04-13 14:16:02 -- "j" ---
+Dist=0.9557 for word "e" -- "j" in 22.46 secs
+---------Bingo! Dist=0.9557 for word "e" -- "j"
+---------Merged 202021 sections in 56.00 secs; 3607.5 scts/sec
+--- Greedy-checking next 10 items
+Dist=0.0550 for class "e j" -- "!" in 30.12 secs
+Dist=0.6614 for class "e j" -- "d" in 29.77 secs
+---------Bingo! Dist=0.6614 for class "e j" -- "d"
+---------Merged 284859 sections in 136.0 secs; 2094.6 scts/sec
+Dist=0.3121 for class "e j d" -- "a" in 45.09 secs
+---------Bingo! Dist=0.3121 for class "e j d" -- "a"
+---------Merged 355630 sections in 174.0 secs; 2043.9 scts/sec
+Dist=0.0808 for class "e j d a" -- "###LEFT-WALL###" in 46.91 secs
+Dist=0.3918 for class "e j d a" -- "b" in 33.96 secs
+xxxxxxxx
+---------Bingo! Dist=0.3918 for class "e j d a" -- "b"
+---------Merged 384102 sections in 195.0 secs; 1969.8 scts/sec
+Dist=0.2467 for class "e j d a b" -- "f" in 51.38 secs
+Dist=0.2366 for class "e j d a b" -- "h" in 38.39 secs
+Dist=0.2554 for class "e j d a b" -- "c" in 35.86 secs
+---------Bingo! Dist=0.2554 for class "e j d a b" -- "c"
+---------Merged 405139 sections in 216.0 secs; 1875.6 scts/sec
+Dist=0.1044 for class "e j d a b c" -- "g" in 50.52 secs
+Dist=0.0226 for class "e j d a b c" -- "i" in 38.41 secs
+--- Checking the done-list len=0
+---- Remaining count = 1375.5 of 694231.0 for "j"
+--- To-do=10 ncls=1 sing=0 nredo=2 2021-04-13 14:43:47 -- "!" ---
+Dist=0.0003 for class "e j" -- "!" in 11.42 secs
+--- To-do=9 ncls=1 sing=1 nredo=2 2021-04-13 14:44:03 -- "d" ---
+Dist=0.0145 for word "!" -- "d" in 9.435 secs
+--- To-do=8 ncls=1 sing=2 nredo=2 2021-04-13 14:44:13 -- "a" ---
+Dist=0.1250 for word "!" -- "a" in 8.522 secs
+--- To-do=7 ncls=1 sing=3 nredo=2 2021-04-13 14:44:23 -- "###LEFT-WALL###" ---
+Dist=0.0182 for class "e j" -- "###LEFT-WALL###" in 8.379 secs
+Dist=   0.0 for word "!" -- "###LEFT-WALL###" in 16.19 secs
+Dist=0.0000 for word "d" -- "###LEFT-WALL###" in 8.048 secs
+Dist=0.4637 for word "a" -- "###LEFT-WALL###" in 7.529 secs
+---------Bingo! Dist=0.4637 for word "a" -- "###LEFT-WALL###"
+---------Merged 64754 sections in 19.00 secs; 3408.1 scts/sec
+--- Greedy-checking next 6 items
+Dist=0.0001 for class "a ###LEFT-WALL###" -- "b" in 7.143 secs
+Dist=0.0139 for class "a ###LEFT-WALL###" -- "f" in 8.318 secs
+Dist=0.0142 for class "a ###LEFT-WALL###" -- "h" in 8.104 secs
+Dist=0.0000 for class "a ###LEFT-WALL###" -- "c" in 3.733 secs
+Dist=0.0213 for class "a ###LEFT-WALL###" -- "g" in 4.576 secs
+Dist=0.0256 for class "a ###LEFT-WALL###" -- "i" in 5.645 secs
+--- Checking the done-list len=2
+Dist=0.0000 for class "a ###LEFT-WALL###" -- "e" in 4.843 secs
+Dist=0.0062 for class "a ###LEFT-WALL###" -- "j" in 3.892 secs
+---- Remaining count = 182636.0477091671 of 417669.0 for "###LEFT-WALL###"
+--- To-do=6 ncls=2 sing=2 nredo=4 2021-04-13 14:46:54 -- "b" ---
+Dist=0.0001 for class "a ###LEFT-WALL###" -- "b" in 9.050 secs
+Dist=0.0061 for word "!" -- "b" in 8.353 secs
+--- To-do=5 ncls=2 sing=3 nredo=4 2021-04-13 14:47:13 -- "f" ---
+Dist=0.0139 for class "a ###LEFT-WALL###" -- "f" in 11.43 secs
+Dist=0.0198 for class "e j" -- "f" in 5.133 secs
+Dist=0.0365 for word "!" -- "f" in 13.56 secs
+Dist=0.2381 for word "d" -- "f" in 4.999 secs
+Dist=0.0003 for word "b" -- "f" in 5.693 secs
+--- To-do=4 ncls=2 sing=4 nredo=4 2021-04-13 14:47:56 -- "h" ---
+Dist=0.0142 for class "a ###LEFT-WALL###" -- "h" in 10.31 secs
+Dist=0.0174 for class "e j" -- "h" in 5.736 secs
+Dist=0.0901 for word "!" -- "h" in 14.02 secs
+Dist=0.2265 for word "d" -- "h" in 4.433 secs
+Dist=0.0003 for word "b" -- "h" in 4.229 secs
+Dist=0.9304 for word "f" -- "h" in 9.015 secs
+---------Bingo! Dist=0.9304 for word "f" -- "h"
+---------Merged 68219 sections in 18.00 secs; 3789.9 scts/sec
+--- Greedy-checking next 3 items
+Dist=0.1650 for class "f h" -- "c" in 6.589 secs
+Dist=0.0211 for class "f h" -- "g" in 4.638 secs
+Dist=0.0508 for class "f h" -- "i" in 4.224 secs
+--- Checking the done-list len=4
+Dist=0.1188 for class "f h" -- "e" in 3.754 secs
+Dist=0.0420 for class "f h" -- "j" in 3.911 secs
+Dist=0.0014 for class "f h" -- "a" in 4.463 secs
+Dist=0.0663 for class "f h" -- "###LEFT-WALL###" in 5.652 secs
+---- Remaining count = 1465.8 of 187522.0 for "h"
+--- To-do=3 ncls=3 sing=3 nredo=6 2021-04-13 14:50:21 -- "c" ---
+Dist=0.1650 for class "f h" -- "c" in 9.284 secs
+
+xxx unchanged and uncached...
+
+Dist=0.0000 for class "a ###LEFT-WALL###" -- "c" in 7.680 secs
+Dist=0.0000 for word "!" -- "c" in 9.102 secs
+--- To-do=2 ncls=3 sing=4 nredo=6 2021-04-13 14:50:48 -- "g" ---
+Dist=0.0211 for class "f h" -- "g" in 7.101 secs
+Dist=0.0213 for class "a ###LEFT-WALL###" -- "g" in 9.327 secs
+Dist=0.0511 for word "!" -- "g" in 8.720 secs
+--- To-do=1 ncls=3 sing=5 nredo=6 2021-04-13 14:51:18 -- "i" ---
+Dist=0.0508 for class "f h" -- "i" in 7.774 secs
+Dist=0.0256 for class "a ###LEFT-WALL###" -- "i" in 8.618 secs
+Dist=0.3223 for word "!" -- "i" in 10.01 secs
+---------Merged 76769 sections in 32.00 secs; 2399.0 scts/sec
+--- Greedy-checking next 0 items
+--- Checking the done-list len=6
+Dist=0.0001 for class "! i" -- "e" in 7.111 secs
+Dist=0.0002 for class "! i" -- "j" in 4.298 secs
+Dist=0.3660 for class "! i" -- "a" in 4.482 secs
+---------Bingo! Dist=0.3660 for class "! i" -- "a"
+---------Merged 80912 sections in 42.00 secs; 1926.5 scts/sec
+Dist=0.0002 for class "! i a" -- "###LEFT-WALL###" in 8.065 secs
+Dist=0.0000 for class "! i a" -- "f" in 4.291 secs
+Dist=0.0943 for class "! i a" -- "h" in 4.338 secs
+---- Remaining count = 9652.5 of 24657. for "i"
+--- To-do=0 ncls=4 sing=4 nredo=8 2021-04-13 14:54:40 -- "()" ---
+Finished greedy-agglomeration: 16 words assigned to 9 classes
+
+
+
+TODO: Why are the distances.... different? Is clobber not
+working? Are counts not being correctly updated?
+Oh bug,  typo in the new code ...
+Oh, bug: its always starting a new cluser .. why!?
+  Because of bad type compare.
+
+Oh otpimzation: distance recomputed when not needed.
+
+merge seems strange:
+Dist=0.9549 for word "e" -- "j"
+but
+got 122053 duals for (WordNode "e" )
+got 106595 duals for (WordNode "j")
+unio length=202020 so very little overlap of the basis ..
+must be small counts!?
+
+(format #t "duude ~A m=~A ~A cls=~A\n" single WA WB cls)
+
+Current code expt-17
+Start greedy-agglomeration of 12 words
+Existing classes=0 singletons=0 done=0
+--- To-do=12 ncls=0 sing=0 nredo=0 2021-04-19 22:59:01 -- "e" ---
+--- To-do=11 ncls=0 sing=1 nredo=0 2021-04-19 22:59:14 -- "j" ---
+Dist=0.9557 for word "e" -- "j" in 25.98 secs
+
+identical
+---------Bingo! Dist=0.9557 for word "e" -- "j"
+------ Create: Merged 202021 sections in 114.0 secs; 1772.1 scts/sec
+nsect=1783 nshape=200238
+--- Greedy-checking next 10 items
+Dist=0.0550 for class "e j" -- "!" in 34.13 secs
+Dist=0.6614 for class "e j" -- "d" in 32.89 secs
+---------Bingo! Dist=0.6614 for class "e j" -- "d"
+diffferent and less Dist=0.5231
+
+------ Extend: Merged 104280 sections in 60.00 secs; 1738.0 scts/sec
+Dist=0.3100 for class "e j" -- "a" in 48.94 secs
+---------Bingo! Dist=0.3100 for class "e j" -- "a"
+
+diff Dist=0.4161 so greater
+
+------ Extend: Merged 73083 sections in 68.00 secs; 1074.7 scts/sec
+Dist=0.0900 for class "e j" -- "###LEFT-WALL###" in 56.52 secs
+Dist=0.6042 for class "e j" -- "b" in 36.73 secs
+---------Bingo! Dist=0.6042 for class "e j" -- "b"
+diff Dist=0.6817  so greater
+
+------ Extend: Merged 40401 sections in 48.00 secs; 841.69 scts/sec
+Dist=0.5827 for class "e j" -- "f" in 52.08 secs
+---------Bingo! Dist=0.5827 for class "e j" -- "f"
+different Dist=0.4730  so less
+
+------ Extend: Merged 39769 sections in 49.00 secs; 811.61 scts/sec
+Dist=0.6249 for class "e j" -- "h" in 58.82 secs
+---------Bingo! Dist=0.6249 for class "e j" -- "h"
+diff  Dist=0.5428
+
+------ Extend: Merged 36810 sections in 53.00 secs; 694.53 scts/sec
+Dist=0.6805 for class "e j" -- "c" in 63.55 secs
+---------Bingo! Dist=0.6805 for class "e j" -- "c"
+diff Dist=0.5947
+
+------ Extend: Merged 32955 sections in 50.00 secs; 659.10 scts/sec
+Dist=0.3152 for class "e j" -- "g" in 57.47 secs
+---------Bingo! Dist=0.3152 for class "e j" -- "g"
+diff Dist=0.3768
+
+------ Extend: Merged 8228 sections in 42.00 secs; 195.90 scts/sec
+Dist=0.1258 for class "e j" -- "i" in 57.40 secs
+--- Checking the done-list len=0
+---- Remaining count = 1375.5 of 694231.0 for "j"
+--- To-do=3 ncls=1 sing=0 nredo=9 2021-04-19 23:25:29 -- "!" ---
+Dist=0.0787 for class "e j" -- "!" in 71.03 secs
+--- To-do=2 ncls=1 sing=1 nredo=9 2021-04-19 23:26:44 -- "###LEFT-WALL###" ---
+Dist=0.0960 for class "e j" -- "###LEFT-WALL###" in 57.67 secs
+Dist=   0.0 for word "!" -- "###LEFT-WALL###" in 17.98 secs
+--- To-do=1 ncls=1 sing=2 nredo=9 2021-04-19 23:28:03 -- "i" ---
+Dist=0.1258 for class "e j" -- "i" in 50.40 secs
+Dist=0.3223 for word "!" -- "i" in 9.925 secs
+---------Bingo! Dist=0.3223 for word "!" -- "i"
+------ Create: Merged 76769 sections in 64.00 secs; 1199.5 scts/sec
+nsect=40979 nshape=35790
+--- Greedy-checking next 0 items
+--- Checking the done-list len=9
+Dist=0.0001 for class "! i" -- "e" in 6.509 secs
+Dist=0.0002 for class "! i" -- "j" in 5.446 secs
+Dist=0.0283 for class "! i" -- "d" in 4.782 secs
+Dist=0.2077 for class "! i" -- "a" in 5.683 secs
+Dist=0.0017 for class "! i" -- "b" in 5.224 secs
+Dist=0.0000 for class "! i" -- "f" in 5.820 secs
+Dist=0.0007 for class "! i" -- "h" in 5.168 secs
+Dist=   0.0 for class "! i" -- "c" in 5.144 secs
+Dist=0.0008 for class "! i" -- "g" in 4.424 secs
+---- Remaining count = 9652.5 of 24657. for "i"
+--- To-do=0 ncls=2 sing=1 nredo=11 2021-04-19 23:31:13 -- "()" ---
+Finished greedy-agglomeration: 11 words assigned to 2 classes
+
+===============================
+Try to repro the old bug so can write unit test for it.
+Cause I don't remember the bug..
+
+26 March ae9603ff864c1b94926621e53a603790b94ba8cb c426c23923f2e99aa23c1920c9c279a218b3c19f
+(define var (Variable "$api-right-star"))
+(define term (wss 'make-pair (WordNode "d") var))
+(define b (Bind (TypedVariable var (Type "EvaluationLink")) term term))
+(use-modules (opencog exec))
+
+(define pca (make-pseudo-cset-api))
+(define psa (add-pair-stars pca))
+(define wsv (make-shape-vec-api))
+(define wss (add-pair-stars wsv))
+
+(wsv 'fetch-pairs)
+(define wsc (add-support-compute wss))
+
+(wss 'left-basis-size)
+(wsc 'cache-all)
+
+
+PatternLink with body (EvaluationLink
+  (PredicateNode "*-word-shape pair-*")
+  (WordNode "d")
+  (VariableNode "$api-right-star"))
+
+  (EvaluationLink
+    (PredicateNode "*-word-shape pair-*")
+    (WordNode "d")
+    (EvaluationLink
+      (PredicateNode "*-shape-*")
+      (WordNode "d")
+      (Connector (WordNode "e") (ConnectorDir "-"))
+      (Connector (WordNode "j") (ConnectorDir "+"))
+      (Connector (WordNode "g") (ConnectorDir "+"))
+      (Connector (VariableNode "$connector-word") (ConnectorDir "+"))
+      (Connector (WordNode "!") (ConnectorDir "+"))
+    ))
+
+  (EvaluationLink
+    (PredicateNode "*-word-shape pair-*")
+    (WordNode "d")
+    (EvaluationLink
+      (PredicateNode "*-shape-*")
+      (WordNode "d")
+      (Connector (VariableNode "$connector-word") (ConnectorDir "-"))
+      (Connector (WordNode "g") (ConnectorDir "+"))
+      (Connector (WordNode "g") (ConnectorDir "+"))))
+
+ (EvaluationLink
+    (PredicateNode "*-word-shape pair-*")
+    (WordNode "d")
+    (EvaluationLink
+      (PredicateNode "*-shape-*")
+      (WordNode "d")
+      (Connector (WordNode "b") (ConnectorDir "-"))
+      (Connector (VariableNode "$connector-word") (ConnectorDir "-"))
+      (Connector (WordNode "g") (ConnectorDir "-"))
+      (Connector (WordNode "e") (ConnectorDir "+"))))
+
+  (EvaluationLink
+    (PredicateNode "*-word-shape pair-*")
+    (WordNode "b")
+    (EvaluationLink
+      (PredicateNode "*-shape-*")
+      (WordNode "b")
+      (Connector (WordNode "###LEFT-WALL###") (ConnectorDir "-"))
+      (Connector (VariableNode "$connector-word") (ConnectorDir "-"))
+      (Connector (WordNode "a") (ConnectorDir "+"))))
+
+
+OK unit test is in opencog/atomspace#2812
+
+
+--------------------------
+(make-concatenation "Sorry, method make-cluster not available!")'
+
+run-common/cogserver-gram.scm
+run-common/marginals-mst-shape.scm:
+
+gram-optim.scm
+
+--------------------------
+(define pca (make-pseudo-cset-api))
+(define csc (add-covering-sections pca))
+
+(csc 'fetch-pairs)
+(csc 'explode-sections)
+
+(define gsc (add-cluster-gram csc))
+
+(gram-classify-greedy-discrim gsc 0.25 4)
+
+-----
+(accumulate-count LLOBJ ACC PAIR FRAC NOISE)
+'get-section SHAPE return the matching section
+
+cset-merge.scm
+shape-vec.scm
+
+
+
 
 
 link-class.scm ???
 ====================================================
 
 FIXED:
+* After merging, and then using fetched-pairs on sections,
+  some/all merged shapes (that have been deleted) get recreated! FIXED
+* Write unit test for the recent caching fix in the pattern matcher,
+  its doable... (fix circa 26 march 2021) #2803 Done in #2812
+* During merging, long class names are printed, is that correct?
+  FIXED, it was wrong, because WrodClass test was wrong
+* Bug: RockDB needs to be compacted on close. closing and reopening
+  a DB shrinks disk use by 20x for some workloads.
+  Also its chewing up vast amounts of RAM. Bugs #9 and #10
+  DONE.
 * Create a generic run-shells.sh   DONE.
 * Change shape-vect to use ShapeLink, CrossSection. DONE
 * Fix link-generator to do full combinatorial. DONE #1175
@@ -2921,12 +3432,10 @@ FIXED:
   need to be present for dict-compare to work without hackery.
 	DONE.
 
-TODO/BUGS:
 
+TODO/BUGS:
 * Implement connector merging.
-* Set up direct-sum/shape clustering run scripts.
-* Write unit test for the recent caching fix in the pattern matcher,
-  its doable...
+* Set up direct-sum/shape clustering run scripts. (partly done)
 * print-matrix-summary-report after MM^T shows nothing. Why?
   because 'mmt-marginals computes only word-pair entropies.
 * Fix count transfer in add-singleton-classes
@@ -2936,9 +3445,6 @@ TODO/BUGS:
 * Alter LG to allow multiple word definitions w/o subscripts.
 * Bugs: quotes are not being escaped by submit-one.pl!!
 * Enhance: revise atomspace start-cogserver to take args directly
-* Bug: RockDB needs to be compacted on close. closing and reopening
-  a DB shrinks disk use by 20x for some workloads.
-  Also its chewing up vast amounts of RAM. Bugs #9 and #10
 * GC during pair counting happens too often.
   (that is, gc takes up too large a fraction of CPU.)
 * Pair counting disappointingly slow.
