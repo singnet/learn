@@ -2,7 +2,6 @@ ADD_GUILE_MODULE (FILES
 	learn.scm
 	batch-word-pair.scm
 	common.scm
-	cset-merge.scm
 	gram-agglo.scm
 	gram-class-api.scm
 	gram-classification.scm
@@ -13,6 +12,7 @@ ADD_GUILE_MODULE (FILES
 	link-pipeline.scm
 	mst-parser.scm
 	pseudo-csets.scm
+	shape-project.scm
 	shape-vec.scm
 	singletons.scm
 	summary.scm

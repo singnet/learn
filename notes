@@ -3385,12 +3385,61 @@ run-common/marginals-mst-shape.scm:
 
 gram-optim.scm
 
+--------------------------------
+(define pca (make-pseudo-cset-api))
+(define psa (add-pair-stars pca))
+
+(define wsv (add-shape-vec-api psa))
+(define wss (add-pair-stars wsv))
+
+(define cac (direct-sum psa wss))
+(define csc (add-pair-stars cac))
+(csc 'fetch-pairs)
+(define gsc (add-cluster-gram csc))
 --------------------------
 (define pca (make-pseudo-cset-api))
 (define csc (add-covering-sections pca))
 
 (csc 'fetch-pairs)
-(csc 'explode-sections)
+(csc 'explode-sections) ; neede both on load and mmt compute
+
+(define gsc (add-cluster-gram csc))
+
+(gram-classify-greedy-discrim gsc 0.25 4)
+
+(define wrd-lst (cog-get-atoms 'WordNode))
+(define w (car wrd-lst))
+((add-support-api csc) 'right-count w)
+
+ (cover-stars 'right-wildcard (WordNode "a"))
+
+Has two different answers, and it depends ... FIXED bug
+
+Does clobber clobber the direct suum contents? Yes it does
+ failed to fetch incoming set correctly for the wild cards. How?
+Because direct sum not called.
+
+(define wc (EvaluationLink
+  (PredicateNode "*-Direct Sum Wild (cset⊕cross-section)")
+  (WordNode "a")
+  (AnyNode "right-wild-direct-sum")))
+(cog-keys wc)
+(fetch-incoming-set (PredicateNode "*-Direct Sum Wild (cset⊕cross-section)"))
+
+support was never computed on direct sum! Why? (at least, not wildcards
+...
+it has Norm Kye and MMT key
+
+(define btc (batch-transpose csc))
+(btc 'mmt-marginals)
+(print-matrix-summary-report csc)
+
+--------------------------
+(define pca (make-pseudo-cset-api))
+(define csc (add-covering-sections pca))
+
+(csc 'fetch-pairs)
+(csc 'explode-sections) ; neede both on load and mmt compute
 
 (define gsc (add-cluster-gram csc))
 
@@ -3400,10 +3449,722 @@ gram-optim.scm
 (accumulate-count LLOBJ ACC PAIR FRAC NOISE)
 'get-section SHAPE return the matching section
 
-cset-merge.scm
+
+bug: if stopped and restarted, merge-into-cluster fails to give cluster
+FIXED
+
+(cog-report-counts)
+$3 = ((PredicateNode . 25) (ListLink . 75701) (MemberLink . 12) (AnyNode . 8) (Connector . 28) (ConnectorDir . 2) (ConnectorSeq . 522935) (Section . 251631) (ShapeLink . 511484) (CrossSection . 865232) (VariableNode . 1) (EvaluationLink . 16) (TypeNode . 2) (AnchorNode . 1) (SchemaNode . 1) (RocksStorageNode . 1) (WordNode . 12) (WordClassNode . 2))
+
+So, why aren't tehy all deleted?
+iWhy are tere more sections than we started with?
+
+(define sex (cog-get-atoms 'Section))
+
+(define (is-zero? cnt) (< cnt 1.0e-10))
+
+(define zer (filter (lambda (s) (is-zero? (cog-count s))) sex))
+(length zer) ; 81182
+where are these from?
+
+(define nz (filter (lambda (s) (not (is-zero? (cog-count s)))) sex))
+
+(length nz) ; 170449
+
+(define nc (filter
+	(lambda (s) (not (eq? 'WordClassNode (cog-type (gar s))))) nz))
+
+(length nc) ; 104033
+
+OK, so its not closing up.... Argh.
+
+(define pca (make-pseudo-cset-api))
+(define csc (add-covering-sections pca))
+(csc 'fetch-pairs)
+
+(define sex (cog-get-atoms 'Section))
+(define (is-zero? cnt) (< cnt 1.0e-10))
+(define zer (filter (lambda (s) (is-zero? (cog-count s))) sex))
+(length zer) ; 0 so old stuff is ok.
+
+cset-merge.scm -- delete this.
 shape-vec.scm
 
+----------
+Also delete ShapeLinks w/o any incoming's
+Bingo! Dist=0.6614 for class "e j" -- "d"
 
+Crap.
+is-similar?
+(define (get-cosine wa wb) (pcos 'right-cosine wa wb))
+(is-similar? get-cosine CUTOFF WORD-A WORD-B))
+
+(define (get-mi wa wb) (pmi 'mmt-fmi wa wb))
+(is-similar? get-mi CUTOFF WORD-A WORD-B))
+
+cosine.scm
+compute-right-cosine
+(compute-right-product ROW-A ROW-B)
+(prod-obj 'right-count (list ROW-A ROW-B)
+ (define prod-obj  (add-support-compute
+            (add-tuple-math star-obj * GET-CNT)
+(define (sum-right-count ITEM)
+         (sum-count (star-obj 'right-stars ITEM)))
+
+fold-api.scm seems OK ...
+
+make-merger ...
+'merge-function called in gram-agglo
+provides word-or-class as argument to 'merge-function
+uses that word-or-class in merge-predicate
+uses word-or-class in tuple object
+built on pseudo-cset...
+
+merge-predicate defined by make-merger
+
+I don't get it ... how do we fake out pseudo-cset to work with
+WordClass's ??? Does it correctly respond to stars and duals
+requests??? Yes, because add-pair-stars does a pattern match
+and it works..
+
+changes to make-gram-class-api:
+-- need to modify right-stars to return either-or for item.
+-- also left-duals...
+
+No ... that's not it...
+... need tuple to align correctly ...
+
+'right-stars is right-star-union
+right-star-union takes tuple of rows...
+calls get-right-union to get 'right-duals for each row in the tuple.
+    .. this is just a big union set of all columns.
+calls (get-right-tuple righty ROW-TUPLE)
+calls 'get-pair for row-col pairs from  get-right-union
+
+net: returns aligned tuples... cause 'get-pair aligns them
+
+for merged connectors, 'get-pair must ... ugh.
+That won't work either.
+go back to earlier design, and do a post-merge sweep
+with multi-crosses producing one unified section.
+
+(merge-section LLOBJ ACC DONOR FRAC NOISE MRG-CON)
+(merge-connectors LLOBJ CLS)
+
+(load-atoms-of-type 'Member)
+(define all-stars (csc 'right-stars (WordClass "e j")))
+
+(cog-link 'Section
+  (Word "j")
+  (ConnectorSeq
+    (Connector (Word "d") (ConnectorDir "-"))
+    (Connector (Word "b") (ConnectorDir "-"))
+    (Connector (Word "e" ) (ConnectorDir "-"))
+    (Connector (Word "b" ) (ConnectorDir "-"))
+    (Connector (Word "j" ) (ConnectorDir "-"))
+    (Connector (Word "!" ) (ConnectorDir "+"))))
+
+merge (WordNode "e" into (WordClassNode "e j")
+in clnclusion: no:yes 146 : 547
+in conculsion handled 693 of 1783 for (WordNode "e"
+
+in clnclusion: no:yes 266 : 443
+in conculsion handled 709 of 1783 for (WordNode "j"
+
+so there are 1783 sections? hard to beleive, but OK.
+
+
+Given acc section:
+* does any ctr contain word to merge?
+* if so, blow it up to multiple x-sections
+* for all of the blow-ups that have a matching xsect in the vector
+  perform replacement to make new sect w/ rewrite-conseq uhh
+  delete old sect.
+
+Given acc x-section:
+* If it has zero connectors of the type, then just recreate
+  the original section, and transfer the count.
+* If it has more than one...
+  then recreate teh donor section, and give it to
+  revise-section which will... build what we want,
+  and will xfer counts to it.
+* Then we also need to recreate teh cross...
+
+
+OK, on conclusion:
+(cog-report-counts)
+$3 = ((PredicateNode . 25) (ListLink . 75701) (MemberLink . 12) (AnyNode . 8) (Connector . 28) (ConnectorDir . 2) (ConnectorSeq . 406773) (Section . 215737) (ShapeLink . 511484) (CrossSection . 765043) (VariableNode . 1) (EvaluationLink . 16) (TypeNode . 2) (AnchorNode . 1) (SchemaNode . 1) (RocksStorageNode . 1) (WordNode . 12) (WordClassNode . 2))
+
+which is still outrageous. so wtf...
+
+(define sex (cog-get-atoms 'Section))
+(define (is-zero? cnt) (< cnt 1.0e-10))
+(define zer (filter (lambda (s) (is-zero? (cog-count s))) sex))
+(length zer) ; 211702 Huh?
+(define top (filter (lambda (s) (< 0 (cog-incoming-size s))) sex))
+(length top) ; 0
+
+(for-each cog-delete! zer)
+------------
+fresh start: (cog-report-counts)
+$2 = ((PredicateNode . 25) (ListLink . 75701) (AnyNode . 8) (Connector . 24) (ConnectorDir . 2) (ConnectorSeq . 75688) (Section . 80832) (ShapeLink . 511484) (CrossSection . 620774) (VariableNode . 1) (EvaluationLink . 14) (TypeNode . 2) (AnchorNode . 1) (SchemaNode . 1) (RocksStorageNode . 1) (WordNode . 12))
+
+(define disc (make-discrim gsc 0.25 4 4))
+(disc 'merge-function (Word "e") (Word "j"))
+
+(define xes (filter (lambda (s) (eq? 'CrossSection (cog-type s))) rs))
+(LLOBJ 'get-section donor)
+
+opencog::SchemeSmob::equalp_misc
+/home/ubuntu/src/atomspace/opencog/guile/SchemeSmob.cc:162
+162                             if (**av == **bv) return SCM_BOOL_T;
+SCM_SMOB_DATA(x)      (SCM_SMOB_DATA_1 (x))
+SCM_SMOB_DATA_1(x)    (SCM_SMOB_DATA_N ((x), 1))
+SCM_SMOB_DATA_N(x, n)    (SCM_CELL_WORD ((x), (n)))
+SCM_CELL_WORD(x, n) SCM_GC_CELL_WORD ((x), (n))
+SCM_GC_CELL_WORD(x, n)   (SCM_UNPACK (SCM_GC_CELL_OBJECT ((x), (n))))
+#define SCM_GC_CELL_OBJECT(x, n) (((SCM *)SCM2PTR (x)) [n])
+
+SCM_SMOB_PREDICATE(tag, obj)	SCM_HAS_TYP16 (obj, tag)
+SCM_HAS_TYP16(x, tag)   (SCM_HAS_HEAP_TYPE (x, SCM_TYP16, tag))
+SCM_TYP16(x)       (0xffff & SCM_CELL_TYPE (x))
+SCM_HAS_HEAP_TYPE(x, type, tag) (SCM_NIMP (x) && type (x) == (tag))
+SCM_CELL_TYPE(x) SCM_CELL_WORD_0 (x)
+
+print SchemeSmob::cog_misc_tag
+$4 = 5751
+
+print *a
+$2 = {scm_unused_field = 119 'w'}  its 0x77
+print *(long*) a
+$6 = 71287
+(gdb) print *(long*) b
+$7 = 71287
+print 0xffff & 71287
+$8 = 5751 OK, great!  so both a & b should be smobs...
+
+
+
+(gdb) print (scm_t_cell) a
+$6 = {word_0 = 0x5555c143f410, word_1 = 0x5555555bbd80}
+(gdb) print (scm_t_cell) b
+Invalid cast.
+(gdb) print *(SCM*) 0x5555a8374de8
+$10 = (SCM) 0x5555accda9b0
+
+(gdb) print *(ValuePtr*) 0x5555555bbd80
+$11 = std::shared_ptr<opencog::Value> (use count 7, weak count -1) = {
+  get() = 0x0}
+
+(gdb) print *(ValuePtr*) 0x5555a8374de8
+$12 = <error reading variable: Cannot access memory at address 0xf>
+
+print /x *(long *)(b+8)
+$13 = 0x5555accdbab0
+
+print *(ValuePtr*) 0x5555accdbab0
+std::shared_ptr<opencog::Value> (use count 2, weak count 3) = {
+  get() = 0x555555e793c0}
+print /x *(long *)(a+8)
+$15 = 0x5555d0d96930
+(gdb) print *(ValuePtr*) 0x5555d0d96930
+$16 = std::shared_ptr<opencog::Value> (empty) = {get() = 0x0}
+
+Ohhhhhh OK.
+--------------------------
+
+(define disc (make-discrim gsc 0.25 4 4))
+(disc 'merge-function (Word "e") (Word "j"))
+
+(define sex (cog-get-atoms 'Section))
+(define (is-zero? cnt) (< cnt 1.0e-10))
+(define zer (filter (lambda (s) (is-zero? (cog-count s))) sex))
+(length zer)
+
+(use-modules (ice-9 local-eval))
+(use-modules (ice-9 readline))
+
+(define (break env)
+	(display "yo duude> ")
+	(let ((input (read)))
+		(unless (or (eq? '. input) (eof-object? input))
+			(catch #t (lambda () (local-eval input env))
+				(lambda (key . args)
+					(format #t "Oh no, Mr. Bill: ~A ~A\n" key args)
+					*unspecified*))
+			(break env))))
+
+(define (break env)
+	(let ((input (readline "yo duude> ")))
+		(unless (or (eq? '. input) (eof-object? input))
+			(catch #t (lambda ()
+				(define sexpr (call-with-input-string input read))
+				(format #t "~A\n" (local-eval sexpr env)))
+				(lambda (key . args)
+					(format #t "Oh no, Mr. Bill: ~A ~A\n" key args)
+					*unspecified*))
+			(break env))))
+
+(define (do-stuff)
+	(define x 42)
+	(format #t "start\n")
+	(define env (the-environment))
+	(break env)
+	(format #t "end ~A\n" x))
+(define (bogo) (define y 56) (do-stuff))
+
+(format #t "it is ~A\n" x)
+
+(let* ((rs (LLOBJ 'right-stars ROW))
+	(goo (filter (lambda (s) (cog-atom? s)) rs)))
+(format #t (length rs)
+(length goo)
+)
+
+(define zer (filter (lambda (s) (is-zero? (cog-count s))) sex))
+
+--------------------------
+(define disc (make-discrim gsc 0.25 4 4))
+(disc 'merge-function (Word "e") (Word "j"))
+
+(define es (gsc 'right-stars (Word "e")))
+(length es) ;891
+
+(define (is-zero? cnt) (< cnt 1.0e-10))
+(define (zer lst)
+	(length (filter (lambda (s) (is-zero? (cog-count s))) lst)))
+(zer es)
+
+(define zs 0)
+(define zx 0)
+(define (foo-sec SEC)
+	(define xes (gsc 'get-cross-sections SEC))
+	(for-each (lambda (xst)
+		(when (is-zero? (gsc 'get-count xst)) (set! zx (+ 1 zx))))
+		xes))
+
+(define (foo-xes XST)
+	(define sct (gsc 'get-section XST))
+	(when (is-zero? (gsc 'get-count sct)) (set! zs (+ zs 1))))
+
+(define (fooli lst)
+	(for-each (lambda (ITEM)
+		(cond
+			((eq? 'Section (cog-type ITEM)) (foo-sec ITEM))
+			((eq? 'CrossSection (cog-type ITEM)) (foo-xes ITEM))))
+		lst))
+
+(define xd 0)
+(define (bar-xes XST)
+	(define sct (gsc 'get-section XST))
+	(when (and (cog-atom? sct) (is-zero? (gsc 'get-count sct)))
+		(set! xd (+ xd 1))
+		(cog-delete! sct)))
+
+Argh, above reveals that 'get-section is creting empty sections.
+
+(define sex (cog-get-atoms 'Section))
+(define xes (cog-get-atoms 'CrossSection))
+.. there are no zero xes! (and there are fewer xes than before)
+.. only sex has zeros and there re more sex's so we must be
+   creating them.
+
+(define (nonsex lst)
+	(filter (lambda (XST)
+		(is-zero? (gsc 'get-count (gsc 'get-section XST))))
+		lst))
+(define zsex (nonsex xes))
+(length zsex) ; 541318 Wow! these are xsections whose matching sec has
+no count!  How is that possible?
+
+--------------------------
+Before merge:
+(ConnectorSeq . 75688) (Section . 80832) (ShapeLink . 511484) (CrossSection . 620774)
+
+(define disc (make-discrim gsc 0.25 4 4))
+(disc 'merge-function (Word "e") (Word "j"))
+
+After merge:
+(ConnectorSeq . 188592) (Section . 121758) (ShapeLink . 511484) (CrossSection . 596375)
+
+wtf...add-covering-sections
+
+donor-connector-set -- donor crosses that donate to sections
+tbd same but sections that donate to crosses
+need also shapes revision.
+
+This won't work:
+   ; Create a list of all CrossSections, obtainable from Sections in
+   ; the all-stars vector, that donated WRD to the cluster. These
+   ; CrossSections (obviously coresponding to Sections in the stars)
+   ; have WRD as the head of the Shape.
+   (define donor-sex
+      (append-map (lambda (ITEM)
+         (if (eq? 'Section (cog-type ITEM))
+            (let ((donor (cog-link 'Section WRD (gdr ITEM))))
+               (if (nil? donor) '()
+                  (LLOBJ 'get-cross-sections donor)))
+            '()))
+         all-stars))
+
+when merging e/j, should fractionate the e
+
+so start-section should ...
+(Cross k,l,m
+   (Shape (Class ej) FRAC))
+
+(Cross k,l,m
+   (Shape (Word e) 1-FRAC))
+
+LLOBJ 'get-cross-sections ... which is what the long revise-section does
+copy to
+
+done with start-cluster
+todo merge-into-cluster DONE
+(merge-crosses LLOBJ CLS PAIR-A frac-to-merge NOISE))))
+
+ej -> 5 sections (3 + 2 more ... + ??? con merge??
+
+e-> 5 or 3 ?  e-klm as before, plus:
+
+ ab(ej)  (ej)gh  abj(!) jgh(!)  so .. 3
+
+(e, abc) + (j, abc) -> ([ej], abc)
+(e, dgh) + (j, dgh) -> ([ej], dgh)
+(e, klm) +  none    -> frac([ej], klm) + (1-frac)(e, klm)
+ none    + (j, abe) -> frac([ej], abx) + (1-frac)(j, aby)
+ none    + (j, egh) -> frac([ej], zgh) + (1-frac)(j, wgh)
+
+(define xes-b-ej-avc #f)
+(define xes-k-ej-vlm #f)
+(define xes-k-e-vlm #f)
+
+; The cross-sections on e should be:
+;     (1-p) * [e, <j, abv>]
+;     (1-p) * [e, <j, vgh>]
+
+merge-cross is creating this:
+[e, <{ej}, vgh>]
+[e, <{ej}, abv>]
+
+from the donor (j, egh) and (j, abe)
+that is  from ({ej}, egh) and ({ej}, abe)
+...
+which is ok for the basic case, but we want the germ to be ej too.
+
+so if start; is germ==e then ej
+if merge-into-cluster then ... ?
+
+ uhh, no should only be reshaping the mreged guy, who already has
+the correct counts cause accum-count set them up.
+
+in reshape-mere
+if MRG is x-sect then take the xsect  turn it into sect,
+then take that sect and replace germ by CLS.
+
+get-section or make-section?
+
+reshape-merge
+
+({ej}, abe) -> [e, <{ej}, abv>]   should be zero   but p(1-p)
+({ej}, egh) -> [e, <{ej}, vgh>]   should be zero
+(j, abe)    -> [e, <j, abv>]   OK (1-p)  xes-e-j-abv  but (1-p)(1-p)
+(j, egh)    -> [e, <j, vgh>]   OK (1-p)  xes-e-j-vgh
+
+(j, abe) has count reduced during section merge...
+then handed to the recrosses...
+sent in (j, abe) -> [e, <j, abv>] -> recross [e, <{ej}, abv>]
+xdonor already has (1-p)=15.75
+xmr is [e, <{ej}, abv>] with zero
+XST is [e, <j, abv>] wth 15.75   (acting as donor to xmr)
+
+if connector in class, then don't recross?
+why? Because that connector already showed in cross, and was handled already.
+
+Next:
+
+({ej}, abe) should be zero
+({ej}, egh) should be zero  .. zero but undeleted ...
+({ej}, abc)
+({ej}, dgh)
+({ej}, klm)
+
+How?
+Easiest is to
+({ej}, abe) -> [e, <{ej}, abv>]
+then regerm, then unexplode...
+
+distinct-type
+
+a ej vbc OK from ({ej}, abc) 1.0 checked
+b ej avc
+c ej abv
+
+d ej vgh OK from ({ej}, dgh) 1.0
+g ej dvh
+h ej dgv
+
+k ej vlm OK from ({ej}, klm) p  checked
+l ej kvm
+m ej klv
+
+k e vlm OK from (e, klm) 1-p  checked
+l e kvm
+m e klv
+
+a j vbe OK from (j, abe) 1-p checked
+b j ave
+e j abv
+
+e j vgh OK from (j, egh) 1-p checked
+g j evh
+h j egh
+
+p * ({ej}, ab{ej}) missing created...
+p * ({ej}, {ej}gh)
+
+ej ej abv
+ej ej vgh
+(ej, abc)
+(ej, klm)
+(ej, dgh)
+(ej, ej gh)
+(ej, ab ej)
+
+----------
+failed to kill  (recrreated
+({ej}, abe)
+({ej}, egh)
+
+recreated during merge...
+
+Hang on.   first merge should have created crosses picking up f ...!?
+
+(f, abe) -> [e, <f, abv>]
+
+(f, ab{ej})  -> [{ej}, <f, abv>] where'd this go??
+(f, {ej}gh)
+
+if point is in class...
+
+(test-approximate (* frac cnt-f-abe) (cog-count sec-f-abej) epsilon)
+(test-approximate (* frac cnt-f-egh) (cog-count sec-f-ejgh) epsilon)
+
+xes-ej-ej-abv
+
+[g, <j, evh>]   ... from (j, egh) ... where'd it go? already whacked??
+
+no... its just not flat ...
+--------------
+
+wild: (f, {ej}gh) 6.25
+
+[a, <f, vbe>] too high, from (f, abe) 23.25
+
+------
+balance-recrosses fails to flatten...
+
+flatten-resects called from merge-resects
+
+balance-recrosses .. given donor section,
+loop over crosses,
+Hang on ....
+({ej}, abe) is created and not eliminated.
+
+merge-recrosses handles the flat case .. how!?
+never mind
+
+-----------
+Oh... part 1 merge:
+(f, abe) -> [e, <f, abv>] -> [{ej}, <f, abv>] -> (f, ab{ej}) 7.75
+7.75 = (* frac cnt-f-abe) tested
+
+Then in linear part of second merge,
+so ({ej}, ab{ej}) 5.25 + (f, ab{ej}) 7.75 -> ({ej}, ab{ej}) 13.0
+
+5.25 = (* frac cnt-j-abe)
+13.0 = (* frac (+ cnt-f-abe cnt-j-abe)) = 13.0 also tested....
+
+So now start doing the shapes...
+We find
+({ej}, abe) where is this from?
+came from flatten-section? MRG
+came from reshape-merge called with ({ej}, abe) 5.8125
+
+linear (f,abe) merged to zero ({ej}, abe) !!!
+This was done near line 526 of gram-projective.scm
+
+problem: this is the left-over (f,abe) from the part-1 merge
+it shouldn't be going in ...
+
+get-left-union
+(star-obj 'left-duals row)
+get-pair
+
+OK. So given ({ej}, abe)  it has donor (f,abe)
+as both passed to reshape-merge
+what should we do with this?
+1) all of count of (f,abe) should go to ({ej}, ab{ej})
+2) all of count of ({ej}, abe) should go to ({ej}, ab{ej})
+which means basically all of the original (f,abe) gets reassigned to
+there. So line 243 is wrong ....
+
+Again:
+coming in, have, after the second linear merge, that
+({ej}, ab{ej}) = 13.0 = (* frac (+ cnt-f-abe cnt-j-abe))
+
+so what to do with the new ({ej}, abe) ? old dogma says set it to zero.
+But we need it to be non-zero because of initial cluster creation.
+So now, just add it. which means
+({ej}, ab{ej}) = 13.0 + ({ej}, abe) = 13.0 + p*(1-p) cnt-f-abe
+= (* frac (+ cnt-f-abe cnt-j-abe)) + (* frac (1-frac) cnt-f-abe)
+= yuck.
+
+26.5625
+doc chkok
+
+[{ej}, <f, abv>] has 7.75 on it ... came from (f, ab{ej}) in the first
+pass. TEST F1 ...
+
+--- a/scm/shape-project.scm
++++ b/scm/shape-project.scm
+@@ -322,9 +322,11 @@ XXX describe me.
+        (define donor-type (cog-type DONOR))
+ 
+        (when (equal? 'Section donor-type)
+-               (if (flatten-section? LLOBJ GLS MRG)
+-                       (rebalance-count LLOBJ DONOR (LLOBJ 'get-count DONOR))
+-                       (merge-recrosses LLOBJ GLS DONOR FRAC NOISE)))
++               (when (not (flatten-section? LLOBJ GLS MRG))
++                       (merge-recrosses LLOBJ GLS DONOR FRAC NOISE)
++                       (rebalance-count LLOBJ MRG (LLOBJ 'get-count MRG)))
++               (rebalance-count LLOBJ DONOR (LLOBJ 'get-count DONOR))
++       )
+ 
+        (when (equal? 'CrossSection donor-type)
+                (merge-resects LLOBJ GLS W MRG DONOR))
+
+(* frac1 (+ cnt-j-abe cnt-f-abe)) = 13.0
+(* frac2 (- 1 frac1) cnt-f-abe) = 8.1375
+7.75 = (* frac1 cnt-f-abe)
+
+after first merge,
+({ej}, ab{ej}) has cnt = 5.25
+and
+(f, ab{ej}) has cnt = 7.75 so total of 13.0 on the linear.
+
+-------------------
+[e, <j, vbe>]
+[e, <j, ebv>]
+[e, <j, veh>]
+[e, <j, evh>]
+
+
+unwanted: .. esp since j was creator!
+[e, <{ej}, v{ej}h>]
+[e, <{ej}, {ej}vh>]
+[e, <{ej}, {ej}bv>]
+[e, <{ej}, vb{ej}>]
+
+merging e first, then j,
+[{ej}, <j, evh>] stripped to zero as expected...
+
+[e, <j, veh>]
+[e, <{ej}, v{ej}h>]  < ---- this
+[e, <j, evh>]
+[e, <j, vbe>]
+[e, <j, ebv>
+
+merge-resects
+xmr=[{ej}, <j, evh>]
+resect= (j, e{ej}h)
+germ=j
+XDON=[e, <j, evh>]
+branch to flatten
+flatten-resects
+
+mgs = ({ej}, e{ej}h)
+
+flatten-section? LLOBJ GLS MRG
+
+j ebe eeh
+--------------------------
+
+[{ej}, <{ej}, {ej}bv>]
+[{ej}, <{ej}, vb{ej}>]
+[{ej}, <{ej}, v{ej}h>]
+[{ej}, <{ej}, {ej}vh>]
+[{ej}, <f, veh>]  <-- No unwanted. .. created in linear merge
+[{ej}, <f, evh>]
+[{ej}, <f, vbe>]
+[{ej}, <f, ebv>]
+
+(f, {ej}b{ej}) from [{ej}, <f, vb{ej}>]
+
+
+no recross
+(accumulate-count LLOBJ flat MRG FRAC NOISE)
+335
+
+not in merge-recrosses
+not in flatten-resects
+
+[e, <j, vbe>]
+[e, <j, ebv>]
+[e, <j, veh>]
+[e, <j, evh>]
+
+\basewidth=0.5em
+\small
+
+For spacing, setting `basewidth=0.45em` will reduce the inter-letter spacing from a ridiculous `0.6em` to a more compact width, all while preserving the fixed width (whereas `columns=fullflexible` wrecks the spacing).
+--------------------------
+. ~/run/expt-18/config/0*sh
+. ~/run/expt-18/config/4*sh
+cd data
+rm -r gram-25-junk.rdb
+cp -pr shape.rdb gram-25-junk.rdb
+guile -l /home/ubuntu/src/learn/run-common/cogserver.scm
+(define pca (make-pseudo-cset-api))
+(define csc (add-covering-sections pca))
+
+(csc 'fetch-pairs)
+(csc 'explode-sections)
+(define gsc (add-cluster-gram csc))
+(gram-classify-greedy-discrim gsc 0.25 4)
+
+--------------------------
+Before merge:
+(ConnectorSeq . 75688) (Section . 80832) (ShapeLink . 511484) (CrossSection . 620774)
+
+(define disc (make-discrim gsc 0.25 4 4))
+(disc 'merge-function (Word "e") (Word "j"))
+
+----- Create: Merged 404042 sections in 434.0 secs; 930.97 scts/sec
+              Revised        shapes
+Whoops. Way too slow. Ouch.
+
+After merge:
+(ConnectorSeq . 310032) (Section . 51904) (ShapeLink . 793814) (CrossSection . 729722)
+
+(for-each cog-extract! (cog-get-atoms 'ShapeLink))
+(for-each cog-extract! (cog-get-atoms 'ConnectorSeq))
+
+(ConnectorSeq . 119999) (Section . 51904) (ShapeLink . 630318) (CrossSection . 729722)
+
+(for-each cog-extract! (cog-get-atoms 'CrossSection))
+(for-each cog-extract! (cog-get-atoms 'ShapeLink))
+(csc 'clobber)
+(csc 'explode-sections)
+
+(Section . 51904) (ShapeLink . 339137) (CrossSection . 410724) 
+
+Hmm why is that different?
+???
+
+Well, some of the sections were not written out...
+
+(csc 'fetch-pairs)
 
 
 
@@ -3411,6 +4172,10 @@ link-class.scm ???
 ====================================================
 
 FIXED:
+* Implement connector merging. ... half-done... DONE, I think, and unit
+  tests too.
+* Alter LG to allow multiple word definitions w/o subscripts.
+  Amir  fixed this, pull req #1204
 * After merging, and then using fetched-pairs on sections,
   some/all merged shapes (that have been deleted) get recreated! FIXED
 * Write unit test for the recent caching fix in the pattern matcher,
@@ -3434,7 +4199,6 @@ FIXED:
 
 
 TODO/BUGS:
-* Implement connector merging.
 * Set up direct-sum/shape clustering run scripts. (partly done)
 * print-matrix-summary-report after MM^T shows nothing. Why?
   because 'mmt-marginals computes only word-pair entropies.
@@ -3442,7 +4206,6 @@ TODO/BUGS:
 * cogserver is not flushing output on 2nd and later connections .. wtf!
   or just behaving incoherently/inconsistently with netcat.
   echo -e "(for-each (lambda (n) (sleep 1) (format #t \"ping ~A\" n)(newline)) (iota 10 1))\n.\n." | nc localhost 17001
-* Alter LG to allow multiple word definitions w/o subscripts.
 * Bugs: quotes are not being escaped by submit-one.pl!!
 * Enhance: revise atomspace start-cogserver to take args directly
 * GC during pair counting happens too often.
