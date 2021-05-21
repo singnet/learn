@@ -131,11 +131,23 @@
   that correspond to Sections).  Assumes that LLOBJ provides an API
   that gives access to Sections.
 
+  A CrossSection has the following form:
+      (CrossSection
+          germ  <-- this is a WordNode or a WordClassNode
+          (Shape
+             point  <-- this is a WordNode or a WordClassNode
+             (ConnectorLink ...)
+             (ConnectorLink ...)
+             ...))
+
   A more detailed description is at the top of this file.
 
   In addition to the usual methods, this also provides:
-  'get-section CROSS  -- Create and return the section that corresponds
+  'make-section CROSS  -- Create and return the section that corresponds
        to the CrossSection CROSS.
+
+  'get-section CROSS  -- Return the section that corresponds to the
+       CrossSection CROSS, if it exists.
 
   'get-cross-sections SECT -- Return all of the CrossSections that
        cover the Section SECT. This returns only those cross-sections
@@ -146,6 +158,10 @@
        will the set to the count on the section. (This is the correct
        way to handle counts, if one wants clustering to commute with
        the creation of sections.)
+
+  'flatten CLS SECT -- Rewrite SECT, replacing the germ by CLS, and also
+       and connectors that belong to CLS by the corresponding connector
+       for CLS. If no connectors belong to CLS, then return #f.
 "
 	(let ((l-basis '())
 			(r-basis '())
@@ -155,8 +171,8 @@
 
 		(define star-wild (Variable "$connector-word"))
 
-		(define any-left (AnyNode "shape word"))
-		(define any-right (AnyNode "shape section"))
+		(define any-left (AnyNode "cross word"))
+		(define any-right (AnyNode "cross shape"))
 
 		; Well, left-type can also be a WordClassNode, but we lie
 		; about that, here.
@@ -183,22 +199,18 @@
 		(define (get-pair-right SHAPE-PR)
 			(cog-outgoing-atom SHAPE-PR 1))
 
-		; Create the section corresponding to the word-shape pair.
-		; That is, unexplode (implode?) the word-shape pair back
-		; into a section, again. This is a projection from the
-		; entire space of exploded word-shape pairs to the
-		; base-space of sections.
+		; ------------------------------------------------
+		; Analyze the CrossSection (the word-shape pair.)  Disasemble
+		; it into it's key parts, with intent that these parts can be
+		; assembled into the originating Section.
 		;
-		; Disassemble the SHAPE, insert WORD into the variable
-		; location, and return the Section. Note that a Section
-		; always exists, because it was impossible to make a shape,
-		; without having had the underlying section that it reduces to.
 		; See (explode-sections) below for documentation
 		; about the structure of the shape.
-		(define (get-section SHAPE-PR)
-			(define WORD (second SHAPE-PR))
-			(define SHAPE (third SHAPE-PR))
-			(define tmpl (cdr (cog-outgoing-set SHAPE)))
+		(define (analyze-xsection XSECT)
+			(define SHAPE-PR (cog-outgoing-set XSECT))
+			(define GERM (first SHAPE-PR))
+			(define SHAPE (second SHAPE-PR))
+			(define tmpl (cog-outgoing-set SHAPE))
 			(define point (car tmpl))
 			(define conseq (cdr tmpl))
 			(define (not-var? ITEM) (not (equal? (gar ITEM) star-wild)))
@@ -206,10 +218,87 @@
 			(define rest (drop-while not-var? conseq))
 			(define dir (gdr (car rest)))
 			(define end (cdr rest))
-			(define ctcr (Connector WORD dir))
+			(list GERM dir begn end point))
+
+		; Create the Section corresponding to the CrossSection
+		; (the word-shape pair.)  That is, unexplode (implode?)
+		; the CrossSection back into a Section, again. This can
+		; be thought of as a projection from the entire space of
+		; exploded word-shape pairs to the base-space of Sections.
+		; (A projecting from the covering space to the base space).
+		;
+		; Disassemble the SHAPE, insert GERM into the variable
+		; location, and return the Section. Note that a Section
+		; always exists, because it was impossible to make a Shape,
+		; without having had the underlying Section that it reduces to.
+		;
+		; XXX "a Section always exists": currently, this is not true,
+		; presumably due to bugs in the merging code. Unclear what's
+		; going on, at the present time. XXX FIXME.
+		(define (make-section XSECT)
+			(define parts (analyze-xsection XSECT))
+			(define GERM  (list-ref parts 0))
+			(define dir   (list-ref parts 1))
+			(define begn  (list-ref parts 2))
+			(define end   (list-ref parts 3))
+			(define point (list-ref parts 4))
+			(define ctcr (Connector GERM dir))
 			(define cseq (ConnectorSeq begn ctcr end))
 			(LLOBJ 'make-pair point cseq))
 
+		(define (get-section XSECT)
+			(define parts (analyze-xsection XSECT))
+			(define GERM  (list-ref parts 0))
+			(define dir   (list-ref parts 1))
+			(define begn  (list-ref parts 2))
+			(define end   (list-ref parts 3))
+			(define point (list-ref parts 4))
+			(define ctcr (cog-link 'Connector GERM dir))
+			(define cseq (if (nil? ctcr) '()
+				(cog-link 'ConnectorSeq begn ctcr end)))
+			(if (nil? cseq) '()
+				(LLOBJ 'get-pair point cseq)))
+
+		; Build a new CrossSection, by replacing the point of
+		; the given XSECT by GLS. See above for the definition
+		; of a "point".
+		(define (re-cross GLS XSECT)
+			(define SHAPE-PR (cog-outgoing-set XSECT))
+			(define GERM (first SHAPE-PR))
+			(define SHAPE (second SHAPE-PR))
+			(define tmpl (cog-outgoing-set SHAPE))
+			(define conseq (cdr tmpl))
+			(CrossSection GERM (Shape GLS conseq)))
+
+		; --------------------------------------------------
+
+		; Replace Connectors in SECT belonging to CLS by CLS.
+		(define (flatten-section CLS SECT)
+			; conseq is the connector sequence
+			(define conseq (cog-outgoing-set (get-pair-right SECT)))
+			(define non-flat #f)
+
+			; Walk through the connector sequence. If any of them
+			; appear in the cluster, create a new connector sequence
+			; with the cluster replacing that particular connector.
+			(define newseq
+				(map (lambda (con)
+					(define clist (cog-outgoing-set con))
+					(if (nil? (cog-link 'MemberLink (car clist) CLS))
+						con
+						(begin (set! non-flat #t)
+							(Connector CLS (cdr clist)))))
+					conseq))
+
+			(define germ (get-pair-left SECT))
+			(define newgerm
+				(if (nil? (cog-link 'MemberLink germ CLS)) germ CLS))
+
+			; Are any of the connectors in the cluster? If so, then
+			; return the rewritten section; else return false.
+			(if non-flat (LLOBJ 'make-pair newgerm (ConnectorSeq newseq)) #f))
+
+		; -----------------------------------------------
 		; Get the count, if the pair exists.
 		(define (get-pair-count L-ATOM R-ATOM)
 			(define sect (get-pair L-ATOM R-ATOM))
@@ -307,6 +396,29 @@
 			(filter-map insert-wild (iota num-cncts))
 		)
 
+		; Same as above, but the cross-sections are created.
+		(define (make-cross-sections SEC)
+			; The root-point of the seed
+			(define point (gar SEC))
+			; The list of connectors
+			(define cncts (cog-outgoing-set (gdr SEC)))
+			(define num-cncts (length cncts))
+
+			; Place the wild-card into the N'th location of the section.
+			(define (insert-wild N)
+				(define front (take cncts N))
+				(define back (drop cncts N))
+				(define ctr (car back)) ; the connector being exploded
+				(define wrd (gar ctr))  ; the word being exploded
+				(define dir (gdr ctr))  ; the direction being exploded
+				(define wild (Connector star-wild dir))
+				(define shape (Shape point front wild (cdr back)))
+				(CrossSection wrd shape))
+
+			; Return all the cross-sections for this section.
+			(map insert-wild (iota num-cncts))
+		)
+
 		; -------------------------------------------------------
 		; Create all of the word-shape pairs that correspond to a
 		; section. This explodes a section into all of the word-shape
@@ -366,6 +478,9 @@
 			; Ask the LLOBJ for all Sections.
 			(define start-time (current-time))
 			(for-each explode-section (LLOBJ 'get-all-elts))
+
+			; Invalidate any caches that might be holding things.
+			(clobber)
 			(format #t "Elapsed time to create shapes: ~A secs\n"
 				(- (current-time) start-time))
 		)
@@ -486,17 +601,13 @@ around for a while.
 ========================  XXX THE CODE ABOVE IS DEAD CODE
 !#
 		;-------------------------------------------
-		; Fetch (from the database) all sections,
-		; as well as all the marginals.
+		; Fetch (from the database) the cross-sections (only),
+		; as well as all the marginals for the cross-sections.
 		(define (fetch-sections)
 			(define start-time (current-time))
 			; marginals are located on any-left, any-right
 			(fetch-incoming-set any-left)
 			(fetch-incoming-set any-right)
-			(LLOBJ 'fetch-pairs)
-			(format #t "Elapsed time to load word sections: ~A seconds\n"
-				(- (current-time) start-time))
-			(set! start-time (current-time))
 			(load-atoms-of-type 'CrossSection)
 			(format #t "Elapsed time to load cross-sections: ~A seconds\n"
 				(- (current-time) start-time))
@@ -539,8 +650,12 @@ around for a while.
 
 				; Custom calls.
 				((explode-sections) explode-sections)
+				((make-section)     make-section)
 				((get-section)      get-section)
-				((get-cross-sections) get-cross-sections)
+				((make-cross-sections) make-cross-sections)
+				((get-cross-sections)  get-cross-sections)
+				((re-cross)         re-cross)
+				((flatten)          flatten-section)
 
 				((provides)         provides)
 				((clobber)          clobber)
@@ -561,22 +676,31 @@ around for a while.
 	(define shape-obj (add-shape-vec-api stars-obj))
 	(define shape-stars (add-pair-stars shape-obj))
 
-	; The direct sum create a flatttened vector that contains both
+	; The direct sum creates a flattened vector that contains both
 	; Sections and Cross-sections.
 	(define cover-obj (direct-sum stars-obj shape-stars))
 	(define cover-stars (add-pair-stars cover-obj))
 
+	; Pass explode to the sahpe object, and then clobber all caches.
+	(define (explode-sections)
+		(shape-obj 'explode-sections)
+		(cover-stars 'clobber))
+
 	; Methods on the object
 	(lambda (message . args)
 		(case message
-			((name)               "Covering Sections for Words")
-			((id)                 "cover-section")
+			((name)                "Covering Sections for Words")
+			((id)                  "cover-section")
 
 			; pass-through
-			((fetch-pairs)        (shape-obj 'fetch-sections))
-			((explode-sections)   (shape-obj 'explode-sections))
-			((get-section)        (apply shape-obj (cons message args)))
-			((get-cross-sections) (apply shape-obj (cons message args)))
+			((fetch-pairs)         (cover-obj 'fetch-pairs))
+			((explode-sections)    (explode-sections))
+			((make-section)        (apply shape-obj (cons message args)))
+			((get-section)         (apply shape-obj (cons message args)))
+			((make-cross-sections) (apply shape-obj (cons message args)))
+			((get-cross-sections)  (apply shape-obj (cons message args)))
+			((re-cross)            (apply shape-obj (cons message args)))
+			((flatten)             (apply shape-obj (cons message args)))
 
 			(else             (apply cover-stars (cons message args)))))
 )
