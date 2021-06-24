@@ -4,7 +4,7 @@ The "big ideas" describe how this project thinks about the world.
 The "medium ideas" describe the basic algorithm being used.
 The "small ideas" describe what has been implemented and is doable
 (has been done) with the current technology and code base. Current focus
-is on language; we're loooking for collaborators on image recognition
+is on language; we're looking for collaborators on image recognition
 and/or movement classification.
 
 The Big Idea - Knowledge
@@ -313,6 +313,12 @@ vectors", they are also components of a graph, components of a grammar.
 
 
 ### The Small Idea
+Unsupervised Image Learning and Recognition (Vision)
+====================================================
+A simple sketch of how the above can be applied to vision (2D images) is
+[presented here](README-Vision.md). No code has been written. Very
+little theoretical exploration has been done.
+
 Unsupervised Language Learning
 ==============================
 (See also: [Language learning wiki](http://wiki.opencog.org/w/Language_learning)
@@ -397,17 +403,20 @@ measure how accuracy scales as a function of training time, how well
 different training algorithms perform, how large a corpus is need to
 get good results, and other related questions.
 
-As of 2021, we are still setting up the infrastructure to do the above.
-Once this is done (real soon now?) the project can resume training runs.
+As of May 2021, a basic infrastructure for doing the above has been set
+up and mostly automated. Some initial calibration runs have been
+performed. A multitude of difficult theoretical questions were promptly
+exposed, see [README-Calibration](README-Calibration.md) for these.
+The primary issue is that it seems like it's very easy to generate
+complex and chaotic grammars which produce ergodic corpora. There is no
+structure to something that is ergodic, so attempting to extract a
+grammar is like trying to find structure in white noise. These
+artificial grammars do not resemble those of natural human languages,
+unless the parameters are very carefully chosen. Judging this and
+evaluating results remains challenging.
+
 Please contact via email or discord opencog chat for details.
 
-The instructions below still assume training is done on an English
-corpus, and will need to be modified to describe the above.  The work
-on English seemed to work "pretty well", in that it was converging to
-what seemed to be the right answers. However, controlling the rate
-of convergence was a challenge, since measuring the accuracy of the
-results was impossible. We could "eyeball" the accuracy and it "looked
-OK". But "eyeballing it" is not very scientific.
 
 Image recognition
 -----------------
@@ -422,23 +431,45 @@ for the image. Thus, it "seems like it should work".
 
 The existing code would choke and be unbearably slow; thus, lots of
 brand-new coded is needed to handle pixels. Interested collaborators
-need to raise thier hands!  This task is suitable for programmers/coders
+need to raise their hands!  This task is suitable for programmers/coders
 familiar with image processing techniques; the more abstract parts of
 the theory should not interfere with the more mundane tasks.  Note,
-however: this is a risky endevour: it seems like it should work, but
+however: this is a risky endeavor: it seems like it should work, but
 there is no guarantee.  Competing with conventional neural-net
 technology is hard.
 
 A different problem that this framework should be able to tackle is the
 understanding coordinated motion. Consider, for example, the movement of
-football players on a field: based on thier movements, one can predict
+football players on a field: based on their movements, one can predict
 what kind of play might be made. Similarly, the movements of a ballerina
 - the hand, elbow, hip, knee movements are also correlated and can be
-classified into "dance moves". This problem is unlike image recogintion,
+classified into "dance moves". This problem is unlike image recognition,
 because one is given the positions of the players on the field, or the
-positions of the dancers limbs, rather than being given a 2D pixellated
+positions of the dancers limbs, rather than being given a 2D pixelated
 image.  Despite these differences, the overall algorithm "should still
 work" on this data. (It seems like it should work! But what do we know?)
+
+
+Mechanical Engineering
+----------------------
+The basic rules of mechanical engineering -- inclined planes, levers,
+screws, rope and pulleys -- assemble in a form of a grammar. Can these
+be discovered from observation?
+
+Consider children's toy blocks: blocks and cylinders, columns, pyramids
+and arches. These have rules for stacking, for example, cylinders roll,
+and cannot be stacked unless upright. These can be considered to be
+grammatical rules, describing the range of allowed, allowable
+combinations that give stable structures.  The "corpus" is the
+collection of all allowed, stable structures. Can the grammar of block
+stacking, the grammar of mechanical engineering be learned from the
+corpus of stable structures?
+
+Can it be learned incrementally? Can it be learned by playing? How might
+this be done?  Is the current theory suitable for this, and, if not, why
+not? Can the current theory be amended so that it is suitable for
+learning mechanical engineering?
+
 
 Processing Overview
 -------------------
@@ -461,9 +492,10 @@ A quick overview:
 * [learn-lang-diary](learn-lang-diary) - diary and notes and papers
   describing results and theory.
 * [run](run) - scripts for running the learning pipeline.
-* [run-config](run-config) - configuration paramters for the learning pipeline.
+* [run-config](run-config) - configuration parameters for the learning pipeline.
+* [run-common](run-common) - generic scripts used in multiple different steps.
 * [scm](scm) - the code that actually does all the work.
-* [tests](tests) - unit tests. Currently unmaintained and broken.
+* [tests](tests) - unit tests. These should pass. Run `make test`.
 
 Architecture Overview
 ---------------------

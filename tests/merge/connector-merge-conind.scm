@@ -1,12 +1,9 @@
 ;
-; connector-merge-cons.scm
-; Unit test for merging of Connectors - single connector; 2-cluster
+; connector-merge-conind.scm
+; Unit test for indirect merge of Connectors - one connector; 2-cluster
 ;
-; Tests merging of two words into a single word-class.
-; The focus here is to make sure that that when the words to
-; be merged also appear in Connectors, that those are merged
-; correctly, too. This triggers some extra merge logic, beyond
-; the basic case.
+; Tests merging of two words into a single word-class. Similar to
+; `connector-merge-cons.scm`, but with merging via cross-sections.
 ;
 ; Created May 2021
 
@@ -24,8 +21,8 @@
 
 ; ---------------------------------------------------------------
 ;
-; This is similar to the "simple start-cluster merge test" except
-; that the word "e" appears both as germ, and in two connectors.
+; This is similar to `connector-merge-cons.scm` except that one more
+; Section is added into the mix.
 ;
 ; This diagram explains what is being tested here:
 ;
@@ -33,50 +30,29 @@
 ;    (e, abc) + (j, abc) -> ({ej}, abc)
 ;    (e, dgh) + (j, dgh) -> ({ej}, dgh)
 ;    (e, klm) +  none    -> p * ({ej}, klm) + (1-p) * (e, klm)
-;     none    + (j, abe) -> p * ({ej}, abe) + (1-p) * (j, abe)
-;     none    + (j, egh) -> p * ({ej}, egh) + (1-p) * (j, egh)
+;     none    + (j, abe) -> p * ({ej}, ab{ej}) + (1-p) * (j, abe)
+;     none    + (j, egh) -> p * ({ej}, {ej}gh) + (1-p) * (j, egh)
 ;
-; However, the last two are not the final form. From the cross-section
-; merge, one has
+; The last two give cross-sections:
 ;    [e, <j, abv>] + none -> p * [{ej}, <j, abv>] + (1-p) * [e, <j, abv>]
 ;    [e, <j, vgh>] + none -> p * [{ej}, <j, vgh>] + (1-p) * [e, <j, vgh>]
 ;
-; which reshapes into
-;     p * (j, ab{ej}) + (1-p) * (j, abe)
-;     p * (j, {ej}gh) + (1-p) * (j, egh)
+; All of the above is tested in `connector-merge-cons.scm`. This test
+; also includes two more Sections (a, kle) and (f, kle) which should
+; lead to two several cross-section merges:
 ;
-; The two reshapes are combined with the two merged sections, to yeild
-; as the final form
-;     p * ({ej}, ab{ej}) + (1-p) * (j, abe)
-;     p * ({ej}, {ej}gh) + (1-p) * (j, egh)
+;    [e, <a, klv>] + none -> p * [{ej}, <a, klv>] + (1-p) * [e, <a, klv>]
+;    [e, <f, klv>] + none -> p * [{ej}, <f, klv>] + (1-p) * [e, <f, klv>]
 ;
-; The cross-sections on e should be:
-;     (1-p) * [e, <j, abv>]
-;     (1-p) * [e, <j, vgh>]
-; and nothing more. The motivation for this is described in the diary
-; entry "April-May 20201 ...Non-Commutivity, Again... Case B".
+; Reshaping these gives two new Sections, and modified counts on the
+; existing sections:
 ;
-; In this diagram, (e,abc) is abbreviated notation for
-; (Section (Word e) (ConnectorList (Connector a) (Connector b) (Connector c)))
-; and so on.
-; {ej} is short for (WordClassNode "e j") (a set of two words)
-; "p" is the fraction to merge == 0.25, hard-coded below.
+;    p * (a, kl{ej}) + (1-p) * (a, kle)
+;    p * (f, kl{ej}) + (1-p) * (f, kle)
 ;
-; What should the cross-sections be?
-; The should track the above sections, with count as appropriate.
-; to recap, expect:
-;     ({ej}, abc)    * 1.0
-;     ({ej}, dgh)    * 1.0
-;     ({ej}, klm)    * p
-;     (e, klm)       * 1-p
-;     (j, abe)       * 1-p
-;     (j, egh)       * 1-p
-;     ({ej}, ab{ej}) * p
-;     ({ej}, {ej}gh) * p
-; There are 8 of these, so expect 24=8*3 CrossSections
 
-(define t-two-cluster "connector 2-cluster merge test")
-(test-begin t-two-cluster)
+(define t-cone-cluster "connector 2-cluster extra test")
+(test-begin t-cone-cluster)
 
 ; Open the database
 (setup-database)
@@ -84,6 +60,7 @@
 ; Load some data
 (setup-e-j-sections)
 (setup-j-extra)
+(setup-indirect-sections)
 
 ; Define matrix API to the data
 (define pca (make-pseudo-cset-api))
@@ -99,26 +76,26 @@
 (define totcnt (fold + 0 (map cog-count (cog-get-atoms 'Section))))
 
 ; Create CrossSections and verify that they got created
-; We expect 3 x (3+4) = 21 of them.
+; We expect 3 x (3+4+2) = 27 of them.
 (csc 'explode-sections)
-(test-equal 21 (length (cog-get-atoms 'CrossSection)))
+(test-equal 27 (length (cog-get-atoms 'CrossSection)))
 
 ; Verify that direct-sum object is accessing shapes correctly
 ; i.e. the 'explode should have created some CrossSections
 (test-equal 3 (length (gsc 'right-stars (Word "g"))))
 (test-equal 3 (length (gsc 'right-stars (Word "h"))))
 
-; Expect 3 Sections and two CrossSections on e.
-(test-equal 5 (length (gsc 'right-stars (Word "e"))))
+; Expect 3 Sections and four CrossSections on e.
+(test-equal 7 (length (gsc 'right-stars (Word "e"))))
 (test-equal 4 (length (gsc 'right-stars (Word "j"))))
 
 (test-equal 3 (len-type (Word "e") 'Section))
-(test-equal 2 (len-type (Word "e") 'CrossSection))
+(test-equal 4 (len-type (Word "e") 'CrossSection))
 (test-equal 4 (len-type (Word "j") 'Section))
 (test-equal 0 (len-type (Word "j") 'CrossSection))
 
-; We expect a total of 3+4=7 Sections
-(test-equal 7 (length (cog-get-atoms 'Section)))
+; We expect a total of 3+4+2=9 Sections
+(test-equal 9 (length (cog-get-atoms 'Section)))
 
 ; --------------------------
 ; Merge two sections together.
@@ -131,8 +108,8 @@
 ; to the sections (1-p) * (j, abe) and (1-p) * (j, egh)
 ; that is, to the "orthogonal"  word-sense.
 (test-equal 1 (len-type (Word "e") 'Section))
-(test-equal 2 (len-type (Word "e") 'CrossSection))
-(test-equal 3 (length (gsc 'right-stars (Word "e"))))
+(test-equal 4 (len-type (Word "e") 'CrossSection))
+(test-equal 5 (length (gsc 'right-stars (Word "e"))))
 
 ; We expect two sections remaining on j
 (test-equal 2 (len-type (Word "j") 'Section))
@@ -141,14 +118,14 @@
 
 ; We expect five merged sections
 (test-equal 5 (len-type (WordClass "e j") 'Section))
-(test-equal 2 (len-type (WordClass "e j") 'CrossSection))
-(test-equal 7 (length (gsc 'right-stars (WordClass "e j"))))
+(test-equal 4 (len-type (WordClass "e j") 'CrossSection))
+(test-equal 9 (length (gsc 'right-stars (WordClass "e j"))))
 
-; Of the 7=3+4 original Sections, 4 are deleted, and 5 are created,
-; leaving a grand total of 8. The 5 new ones are all e-j, the
-; remaining three ones are "e" or "j" with reduced counts.
+; Of the 9=3+4+2 original Sections, 4 are deleted, and 7 are created,
+; leaving a grand total of 12. Five of the new ones have {ej} as germ,
+; and two with {ej} as connectors.
 ; This is just a total over everything above.
-(test-equal 8 (length (cog-get-atoms 'Section)))
+(test-equal 12 (length (cog-get-atoms 'Section)))
 
 ; ----------------------------
 ; Validate counts.
@@ -170,10 +147,12 @@
 (test-approximate (* (- 1 frac) cnt-e-klm) (cog-count xes-k-e-vlm) epsilon)
 
 ; --------------------------
-; Expect 24 CrossSections as described above.
-(test-equal 24 (length (cog-get-atoms 'CrossSection)))
+; Expect 32 CrossSections as described above.
+(test-equal 32 (length (cog-get-atoms 'CrossSection)))
 
 ; Validate counts on various Sections and CrossSections...
+; This is identical to the tests in `connector-merge-cons.scm` and so
+; is just a cut-n-paste of that test.
 (expected-j-extra-sections)
 (test-approximate (* (- 1 frac) cnt-j-abe) (cog-count sec-j-abe) epsilon)
 (test-approximate (* (- 1 frac) cnt-j-egh) (cog-count sec-j-egh) epsilon)
@@ -188,6 +167,16 @@
 (test-approximate (* frac cnt-j-egh) (cog-count xes-ej-ej-vgh) epsilon)
 
 ; -----------------------
+; Now test the new sections, not seen in earlier tests.
+(expected-indirect-sections)
+
+(test-approximate (* (- 1 frac) cnt-a-kle) (cog-count sec-a-kle) epsilon)
+(test-approximate (* (- 1 frac) cnt-f-kle) (cog-count sec-f-kle) epsilon)
+
+(test-approximate (* frac cnt-a-kle) (cog-count sec-a-klv) epsilon)
+(test-approximate (* frac cnt-f-kle) (cog-count sec-f-klv) epsilon)
+
+; -----------------------
 ; Verify detailed balance
 (test-assert (check-sections csc epsilon))
 (test-assert (check-crosses csc epsilon))
@@ -196,6 +185,6 @@
 (test-approximate totcnt (fold + 0 (map cog-count (cog-get-atoms 'Section)))
 	epsilon)
 
-(test-end t-two-cluster)
+(test-end t-cone-cluster)
 
 ; ---------------------------------------------------------------
