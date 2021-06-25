@@ -257,8 +257,95 @@
 ; ---------------------------------------------------------------
 ; ---------------------------------------------------------------
 ; ---------------------------------------------------------------
+; Additional e sections, having e as connector.
+
+(define cnt-e-abe 11)
+(define cnt-e-abj 9)
+
+(define (setup-e-extra)
+
+	; Some e sections having "e" as a connector.
+	(Section (ctv 1 0 cnt-e-abe)
+		(Word "e")
+		(ConnectorSeq
+			(Connector (Word "a") (ConnectorDir "-"))
+			(Connector (Word "b") (ConnectorDir "-"))
+			(Connector (Word "e") (ConnectorDir "+"))))
+
+	(Section (ctv 1 0 cnt-e-abj)
+		(Word "e")
+		(ConnectorSeq
+			(Connector (Word "a") (ConnectorDir "-"))
+			(Connector (Word "b") (ConnectorDir "-"))
+			(Connector (Word "j") (ConnectorDir "+"))))
+
+	*unspecified*
+)
+
+; ---------------------------------------------------------------
+; ---------------------------------------------------------------
+; ---------------------------------------------------------------
+; Define two more sections that get split indirectly.
+
+(define cnt-a-kle 23)
+(define cnt-f-kle 17)
+
+(define (setup-indirect-sections)
+	(Section (ctv 1 0 cnt-a-kle)
+		(Word "a")
+		(ConnectorSeq
+			(Connector (Word "k") (ConnectorDir "-"))
+			(Connector (Word "l") (ConnectorDir "-"))
+			(Connector (Word "e") (ConnectorDir "+"))))
+	(Section (ctv 1 0 cnt-f-kle)
+		(Word "f")
+		(ConnectorSeq
+			(Connector (Word "k") (ConnectorDir "-"))
+			(Connector (Word "l") (ConnectorDir "-"))
+			(Connector (Word "e") (ConnectorDir "+"))))
+)
+
+(define sec-a-kle #f)
+(define sec-f-kle #f)
+(define sec-a-klv #f)
+(define sec-f-klv #f)
+
+(define (expected-indirect-sections)
+	(set! sec-a-kle
+	(Section
+		(Word "a")
+		(ConnectorSeq
+			(Connector (Word "k") (ConnectorDir "-"))
+			(Connector (Word "l") (ConnectorDir "-"))
+			(Connector (Word "e") (ConnectorDir "+")))))
+	(set! sec-f-kle
+	(Section
+		(Word "f")
+		(ConnectorSeq
+			(Connector (Word "k") (ConnectorDir "-"))
+			(Connector (Word "l") (ConnectorDir "-"))
+			(Connector (Word "e") (ConnectorDir "+")))))
+	(set! sec-a-klv
+	(Section
+		(Word "a")
+		(ConnectorSeq
+			(Connector (Word "k") (ConnectorDir "-"))
+			(Connector (Word "l") (ConnectorDir "-"))
+			(Connector (WordClass "e j") (ConnectorDir "+")))))
+	(set! sec-f-klv
+	(Section
+		(Word "f")
+		(ConnectorSeq
+			(Connector (Word "k") (ConnectorDir "-"))
+			(Connector (Word "l") (ConnectorDir "-"))
+			(Connector (WordClass "e j") (ConnectorDir "+")))))
+)
+
+; ---------------------------------------------------------------
+; ---------------------------------------------------------------
+; ---------------------------------------------------------------
 ; Additional f sections, having e as connector.
-; Just like the addtional j sections above.
+; Just like the additional j sections above.
 
 (define cnt-f-abe 31)
 (define cnt-f-egh 25)

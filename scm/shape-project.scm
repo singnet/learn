@@ -187,18 +187,16 @@
 "
 	(define resect (LLOBJ 'make-section XMR))
 	(define germ (LLOBJ 'left-element resect))
-
 	(define mgsf (LLOBJ 'flatten GLS resect))
-	(define mgs (if mgsf mgsf resect))
-
-	(define x-cnt (LLOBJ 'get-count XMR))
 
 	; This is confusing ... can't we just call accumulate-count?
 	; (accumulate-count LLOBJ mgs donor FRAC NOISE)
 	; ???
 	(if (nil? (cog-link 'MemberLink germ GLS))
 		(let ((donor (LLOBJ 'make-section XDON))
-				(d-cnt (LLOBJ 'get-count XDON)))
+				(mgs (if mgsf mgsf resect))
+				(d-cnt (LLOBJ 'get-count XDON))
+				(x-cnt (LLOBJ 'get-count XMR)))
 
 			(when mgsf
 				(rebalance-count LLOBJ resect 0)
@@ -206,14 +204,16 @@
 			(rebalance-count LLOBJ mgs x-cnt)
 			(rebalance-count LLOBJ donor d-cnt)
 		)
-		(let ((reg (if mgsf mgsf
-					(LLOBJ 'make-pair GLS (LLOBJ 'right-element resect)))))
-			(set-count XMR 0)
+		(let* ((reg (if mgsf mgsf
+					(LLOBJ 'make-pair GLS (LLOBJ 'right-element resect))))
+				(r-cnt (LLOBJ 'get-count reg)))
 
+			(set-count XMR 0)
 			; Create the cross-sections corresponding to `regs`
 			(for-each
-				(lambda (xfin) (set-count xfin x-cnt))
-				(LLOBJ 'make-cross-sections reg))))
+				(lambda (xfin) (set-count xfin r-cnt))
+				(LLOBJ 'make-cross-sections reg))
+	))
 )
 
 ; ---------------------------------------------------------------------
@@ -245,18 +245,31 @@
 				; If MRG can be flattened, then transfer all counts
 				; from MRG to the flattened variant thereof.
 				(begin
-					(accumulate-count LLOBJ flat MRG 1.0 NOISE)
-					(rebalance-count LLOBJ flat (LLOBJ 'get-count flat))
+					(rebalance-count LLOBJ flat
+						(+ (LLOBJ 'get-count flat) (LLOBJ 'get-count MRG)))
+					(rebalance-count LLOBJ MRG 0)
 					(rebalance-count LLOBJ DONOR (LLOBJ 'get-count DONOR))
 				)
 
 				; If MRG does not need flattening, then ...
 				; Loop over donating cross-sections.
-				(for-each
-					(lambda (XST)
-						(define xmr (LLOBJ 're-cross GLS XST))
-						(accumulate-count LLOBJ xmr XST FRAC NOISE))
-					(LLOBJ 'get-cross-sections DONOR))))
+				(begin
+					(for-each
+						(lambda (XST)
+							(define xmr (LLOBJ 're-cross GLS XST))
+							(accumulate-count LLOBJ xmr XST FRAC NOISE))
+						(LLOBJ 'make-cross-sections DONOR))
+
+						; We can rebalance here, but it does not seem to
+						; affect anything.
+						; (rebalance-count LLOBJ DONOR (LLOBJ 'get-count DONOR))
+
+						; Special case: donor was already non-flat. We need
+						; to transfer all of the counts over.
+						(when (LLOBJ 'is-nonflat? GLS MRG)
+							(set-count MRG
+								(+ (LLOBJ 'get-count MRG) (LLOBJ 'get-count DONOR)))
+							(rebalance-count LLOBJ DONOR 0)))))
 
 		; Always rebalance the merged section.
 		(rebalance-count LLOBJ MRG (LLOBJ 'get-count MRG))
@@ -278,25 +291,31 @@
 	(define nx 0)
 
 	; If the count in Section is zero, delete it.
-	; Also scan all of it's crosses
+	; Also scan all of it's crosses. Crosses aren't normally stored in
+	; the DB, so we just extract them.
 	(define (del-sect SEC)
 		(for-each (lambda (xst)
 			(when (and (cog-atom? xst) (is-zero? (LLOBJ 'get-count xst)))
-				(cog-delete! xst)
-				(set! nx (+ 1 nx))))
+				(let ((shp (gdr xst)))
+					(cog-extract! xst)
+					(cog-extract! shp)
+					(set! nx (+ 1 nx)))))
 			(LLOBJ 'get-cross-sections SEC))
 		(when (is-zero? (LLOBJ 'get-count SEC))
-			(cog-delete! SEC)
-			(set! ns (+ 1 ns))))
+			(let ((csq (gdr SEC)))
+				(cog-delete! SEC)
+				(cog-delete! csq)
+				(set! ns (+ 1 ns)))))
 
 	(define (del-xes XST)
 		(define sct (LLOBJ 'get-section XST))
 		(when (and (cog-atom? sct) (is-zero? (LLOBJ 'get-count sct)))
-			(cog-delete! sct)
-			(set! ns (+ 1 ns)))
-		(when (is-zero? (LLOBJ 'get-count XST))
-			(cog-delete! XST)
-			(set! nx (+ 1 nx))))
+			(del-sect sct))
+		(when (and (cog-atom? XST) (is-zero? (LLOBJ 'get-count XST)))
+			(let ((shp (gdr XST)))
+				(cog-extract! XST)
+				(cog-extract! shp)
+				(set! nx (+ 1 nx)))))
 
 	; Cleanup after merging.
 	(for-each

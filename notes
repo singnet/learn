@@ -4125,6 +4125,7 @@ cd data
 rm -r gram-25-junk.rdb
 cp -pr shape.rdb gram-25-junk.rdb
 guile -l /home/ubuntu/src/learn/run-common/cogserver.scm
+(use-modules (srfi srfi-1))
 (define pca (make-pseudo-cset-api))
 (define csc (add-covering-sections pca))
 
@@ -4157,7 +4158,7 @@ After merge:
 (csc 'clobber)
 (csc 'explode-sections)
 
-(Section . 51904) (ShapeLink . 339137) (CrossSection . 410724) 
+(Section . 51904) (ShapeLink . 339137) (CrossSection . 410724)
 
 Hmm why is that different?
 ???
@@ -4165,6 +4166,320 @@ Hmm why is that different?
 Well, some of the sections were not written out...
 
 (csc 'fetch-pairs)
+
+--------------------------
+Before merge:
+(ConnectorSeq . 75688) (Section . 80832) (ShapeLink . 511484) (CrossSection . 620774)
+
+(define gsc (add-cluster-gram csc))
+(gram-classify-greedy-discrim gsc 0.25 4)
+
+After:
+(ConnectorSeq . 81800) (Section . 6711) (ShapeLink . 173569) (CrossSection . 176020)
+
+(check-sections csc epsilon)
+(check-crosses csc epsilon)
+
+One unbalanced section, in total. (c, cba!)21.7514 vs [a, <c, cbv!>]16.9337
+one undeleted cross-section: [!, <f, ebv>]
+
+(define xes (cog-get-atoms 'CrossSection))
+(csc 'explode-sections)
+
+after:
+(ConnectorSeq . 81800) (Section . 6711) (ShapeLink . 205930) (CrossSection . 211762)
+
+Sooo ... merge made a lot of crosses disappear...
+(define nxes (cog-get-atoms 'CrossSection))
+
+(define old (make-aset-predicate xes))
+
+(define news (atoms-subtract nxes xes))
+
+wtf explode created an unbalaced cross!
+(define bad
+(Section
+  (WordClassNode "e j")
+  (ConnectorSeq
+    (Connector (WordClassNode "e j") (ConnectorDir "-"))
+    (Connector (WordNode "g") (ConnectorDir "+"))
+    (Connector (WordNode "g") (ConnectorDir "+")))))
+
+was everything stored?  Yes.
+
+(define gtv (make-afunc-cache cog-count))
+(for-each gtv (cog-get-atoms 'Section))
+(load-atoms-of-type 'Section)
+
+(for-each
+	(lambda (atm)
+		(define diff (- (gtv atm) (cog-count atm)))
+		(if (< 1.0e-6 (abs diff))
+			(format #t "fail at ~A ~A" (gtv atm) atm)))
+	(cog-get-atoms 'Section))
+
+Are there CrossSections in storage?
+(cog-rocks-stats storage-node)
+cog-rocks-load-atomspace
+
+(load-atomspace)
+(ConnectorSeq . 75688) (Section . 80832) (ShapeLink . 511484)
+huh ... but no cross-sections!
+(for-each cog-delete! (cog-get-atoms 'ShapeLink))
+
+who stored these?
+
+--------------------------
+try again
+. ~/run/expt-18/config/0*sh
+. ~/run/expt-18/config/4*sh
+cd data
+rm -r gram-25-junk.rdb; cp -pr shape.rdb gram-25-junk.rdb
+guile -l /home/ubuntu/src/learn/run-common/cogserver.scm
+(use-modules (srfi srfi-1))
+(define pca (make-pseudo-cset-api))
+(define csc (add-covering-sections pca))
+
+(csc 'fetch-pairs)
+(csc 'explode-sections)
+(define gsc (add-cluster-gram csc))
+(gram-classify-greedy-discrim gsc 0.25 4)
+
+--------------------------
+Before merge:
+(ConnectorSeq . 75688) (Section . 80832) (ShapeLink . 511484) (CrossSection . 620774)
+
+(define gsc (add-cluster-gram csc))
+(define disc (make-discrim gsc 0.25 4 4))
+(disc 'merge-function (Word "e") (Word "j"))
+
+------ Create: Merged 202021 sections in 195.0 secs; 1036.0 scts/sec
+------ Create: Revised 202021 shapes in 515.0 secs; 392.27 scts/sec
+------ Create: cleanup 1 in 281.0 secs; 0.0036 ops/sec
+
+(ConnectorSeq . 119999) (Section . 51904) (ShapeLink . 630318) (CrossSection . 729722)
+
+(check-sections csc 1.0e-6)
+Same failing ...
+(check-sections csc 1.0e-6)
+
+(define (check-balance LLOBJ)
+	(define epsilon 1.0e-6)
+
+   (filter
+      (lambda (sect)
+         (define scnt (cog-count sect))
+         (any
+            (lambda (cross)
+               (define diff (- scnt (cog-count cross)))
+               (< epsilon (abs diff)))
+            (LLOBJ 'get-cross-sections sect)))
+      (cog-get-atoms 'Section))
+)
+
+(define bad (check-balance csc))
+(length bad)
+$6 = 74
+
+now 42
+
+... now zero! Yayyy!
+
+------------------------------
+(filter-type (WordClass "e j") 'CrossSection)
+
+[{ej}, <{ej}, abv>]
+[{ej}, <f, klv>]    <---- unwanted
+[{ej}, <a, klv>]
+[{ej}, <{ej}, vgh>]
+[{ej}, <{ej}, klv>]
+
+[{ej}, <f, klv>] -> (f, kl{ej}) shoudld have been merged.
+
+none + (f, kl{ej}) -> p * ({ej}, kl{ej}) + (1-p) * (f, kl{ej})
+connector-merge-tricon.scm
+
+385.2375 388.0
+
+
+(f, kl{ej}) <- unwanted
+
+(a, kl{ej})
+
+(define sec-a-kle #f)
+(define sec-f-kle #f)
+(define sec-a-klv #f)
+(define sec-f-klv #f)
+
+-------------------------
+try again:
+
+------ Create: Merged 202021 sections in 210.0 secs; 962.00 scts/sec
+------ Create: Revised 202021 shapes in 559.0 secs; 361.40 scts/sec
+------ Create: cleanup 1 in 312.0 secs; 0.0032 ops/sec
+
+(cog-report-counts) -- no change...
+(define bad (check-balance csc))
+(length bad)
+$3 = 74 ... no change. So the test fix fixed nothing here...
+
+sec-ej-abv
+
+({ej}, g{ej}i) -- 5
+[g, <{ej}, v{ej}i>] -- 2
+[{ej}, <{ej}, gvi>] -- 2
+[i, <{ej}, g{ej}v>] -- 2
+
+(Section
+  (WordNode "e")
+  (ConnectorSeq
+    (Connector (WordNode "g") (ConnectorDir "-"))
+    (Connector (WordNode "e") (ConnectorDir "+"))
+    (Connector (WordNode "i") (ConnectorDir "+"))))
+
+sec-j-gji 2
+sec-j-gei 1
+sec-e-gji 2
+sec-e-gei 0
+
+start with donor
+ x-cnt= 2.0 0.0 2.0 for SEC=(Section (ctv 1 0 0) sec-e-gji
+This has zero-count... so was fully merged
+before flat - 0
+after flat 4 and no xes
+
+start with donor
+ x-cnt= 2.0 0.0 2.0 for SEC=(Section (ctv 1 0 0) sec-j-gji
+before flat 4
+after flat - 4 and no xes
+
+crosser sec-j-gei  reg has count of 4....
+ ..  pre-no xes, post xes=3 so this is less than reg...
+crosser sec-j-gji
+ .. pre has xes=3, post has 0 for reg=4
+
+start with donor
+ x-cnt= 1.0 0.0 1.0 for SEC=(Section (ctv 1 0 0) sec-j-gei
+now have xes, but of zero count, before = 4
+after =5 and all xes have 5
+
+crosser sec-e-gji
+ .. pre has xes=5 post has 2 for reg=5
+
+
+so count is effed later.
+
+
+
+
+
+
+j abj
+e abj
+j abe done
+e abe
+e abj
+
+sec-ej-abv
+sec-ej-vgh
+
+xes-a-e-vbe from (e, abe)
+
+(csc 'get-cross-sections
+
+(Section
+  (WordClassNode "e j")
+  (ConnectorSeq
+    (Connector (WordNode "g") (ConnectorDir "-"))
+    (Connector (WordClassNode "e j") (ConnectorDir "+"))
+    (Connector (WordNode "i") (ConnectorDir "+"))))
+
+(CrossSection
+  (WordNode "g")
+  (ShapeLink (WordClassNode "e j")
+    (Connector (VariableNode "$connector-word") (ConnectorDir "-"))
+    (Connector (WordClassNode "e j") (ConnectorDir "+"))
+    (Connector (WordNode "i") (ConnectorDir "+"))))
+
+(CrossSection
+  (WordClassNode "e j")
+  (ShapeLink (WordClassNode "e j")
+    (Connector (WordNode "g") (ConnectorDir "-"))
+    (Connector (VariableNode "$connector-word") (ConnectorDir "+"))
+    (Connector (WordNode "i") (ConnectorDir "+"))))
+
+--------------------
+After delete fix:
+
+ (ConnectorSeq . 119999) (Section . 51904) (ShapeLink . 300931) (CrossSection . 357720)
+half the cross-sections disappear
+
+after count fix:
+(ConnectorSeq . 119999) (Section . 51904) (ShapeLink . 301129) (CrossSection . 358315) 
+
+OK, so this is the final fix
+(define bad (check-balance csc))
+(length bad)
+$3 = 0
+provided by commit 5e1d7dfb94867f22642d7cdf0621a833bb96092e
+
+(define (find-zero)
+	(define epsilon 1.0e-6)
+   (filter
+      (lambda (sect) (< (cog-count sect) epsilon))
+      (cog-get-atoms 'Section)))
+
+(define gsc (add-cluster-gram csc))
+(define sta (add-pair-stars gsc))
+(define disc (make-discrim sta 0.25 4 4))
+(disc 'merge-function (Word "e") (Word "j"))
+
+-----------------------
+guile -l ~/src/learn/run-common/cogserver-gram.scm
+(define psa star-obj)
+(gram-classify-greedy-disinfo psa 3.0 4)
+
+(define gram-obj (add-cluster-gram cset-obj))
+(define psa (add-pair-stars gram-obj))
+(gram-classify-greedy-disinfo psa 8.0 4)
+
+total fail. wtf. Oh, no its fine. just not printing.
+
+(define pca (make-pseudo-cset-api))
+(define psa (add-pair-stars pca))
+(psa 'fetch-pairs)
+(define gram-obj (add-cluster-gram pca))
+(define gsa (add-pair-stars gram-obj))
+(gram-classify-greedy-disinfo gsa 8.0 4)
+
+(gram-classify greedy-over-words (make-disinfo STARS MI ZIPF MIN-OBS))
+(greedy-grow MERGER CLS-LST singletons done-list todo-words)
+(assign-word-to-class MERGER wrd TRUE-CLS-LST)
+
+(MERGER 'merge-predicate cls WRD)
+
+ (is-similar? get-mi CUTOFF WORD-A WORD-B))
+
+Dist=0.2484 for word "e" -- "j" in 0.066 secs
+Dist=0.5501 for word "d" -- "a" in 0.785 secs
+Dist=0.3725 for word "e" -- "b" in 0.056 secs
+Dist=0.3929 for word "j" -- "b" in 0.061 secs
+Dist=0.8141 for word "d" -- "f" in 0.100 secs
+Dist=0.5596 for word "a" -- "f" in 0.712 secs
+Dist=0.8126 for word "d" -- "h" in 0.127 secs
+Dist=0.6048 for word "a" -- "h" in 0.709 secs
+Dist=1.2800 for word "f" -- "h" in 0.060 secs
+Dist=0.7817 for word "d" -- "c" in 0.083 secs
+Dist=0.5544 for word "a" -- "c" in 0.740 secs
+Dist=1.3032 for word "f" -- "c" in 0.032 secs
+Dist=1.2824 for word "h" -- "c" in 0.051 secs
+Dist=0.3896 for word "e" -- "g" in 0.070 secs
+Dist=0.2684 for word "j" -- "g" in 0.062 secs
+Dist=0.8982 for word "b" -- "g" in 0.050 secs
+Dist=0.0819 for word "e" -- "i" in 0.080 secs
+Dist=0.0185 for word "j" -- "i" in 0.097 secs
+Dist=1.4862 for word "b" -- "i" in 0.103 secs
+Dist=3.2143 for word "g" -- "i" in 0.082 secs
 
 
 
