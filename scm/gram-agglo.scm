@@ -704,10 +704,12 @@
 ; list, ranked in order of the observed number of sections on the
 ; word. (i.e. the sum of the counts on each of the sections).
 ;
-; Words with low observation counts are discarded. A word is
-; considered to be 'big enough' if the LLOBJ says it is.
+; Words with low observation counts are discarded (ignored). A word
+; is considered to be 'big enough' if the LLOBJ says it is.
 ; Sorting is important, because of locality: words in similar
-; grammatical classes also have similar frequency counts.
+; grammatical classes also have similar frequency counts. Here,
+; "discarded/ignored" means that it is removed from the word-list.
+; Its still in the AtomSpace, its just not considered for processing.
 ;
 ; Counts are obtained by looking them up in the margin. It is not
 ; practical, at this point, to count them directly, as this would
@@ -896,6 +898,10 @@
 "
   gram-classify-greedy-disinfo - Merge words into word-classes.
 
+  Deprecated. Experimental work indicates that the taper fraction
+  was badly designed.  This function will be removed in the future.
+  It should be gone by 2022, if not sooner.
+
   Similar to `gram-classify-greedy-discrim`, but uses MI instead
   of cosine to perform merge decisions and determine a merge fraction.
   See `make-disinfo` for detailed documentation.
@@ -911,6 +917,52 @@
 "
 	(define ZIPF 4)
 	(gram-classify greedy-over-words (make-disinfo STARS MI ZIPF MIN-OBS))
+)
+
+(define-public (gram-classify-greedy-mifuzz STARS MI FRAC MIN-OBS)
+"
+  gram-classify-greedy-mifuzz - Merge words into word-classes.
+
+  Similar to `gram-classify-greedy-fuzz`, but uses MI instead
+  of cosine to perform merge decisions and determine a merge fraction.
+  See `make-mifuzz` for detailed documentation.
+
+  STARS is the object holding the disjuncts. For example, it could be
+  (add-dynamic-stars (make-pseudo-cset-api)) or perhaps a shape vector.
+
+  MI should be the minimum MI acceptable to perform a merge on.
+  This is dataset dependent; currently, 3.0 is recommended.
+
+  FRAC is the fraction of the union-merge to be added into the
+  cluster. Recommended value is zero, else a very small number,
+  no larger than 1/2^self-MI of the items to be merged.
+
+  MIN-OBS is the smallest number of observations of the word that
+  is acceptable; words with fewer observations will be ignored.
+"
+	(define ZIPF 4)
+	(gram-classify greedy-over-words (make-mifuzz STARS MI FRAC ZIPF MIN-OBS))
+)
+
+(define-public (gram-classify-greedy-midisc STARS MI MIN-OBS)
+"
+  gram-classify-greedy-midisc - Merge words into word-classes.
+
+  Similar to `gram-classify-greedy-discrim`, but uses MI instead
+  of cosine to perform merge decisions and determine a merge fraction.
+  See `make-midisc` for detailed documentation.
+
+  STARS is the object holding the disjuncts. For example, it could be
+  (add-dynamic-stars (make-pseudo-cset-api)) or perhaps a shape vector.
+
+  MI should be the minimum MI acceptable to perform a merge on.
+  This is dataset dependent; currently, 3.0 is recommended.
+
+  MIN-OBS is the smallest number of observations of the word that
+  is acceptable; words with fewer observations will be ignored.
+"
+	(define ZIPF 4)
+	(gram-classify greedy-over-words (make-midisc STARS MI ZIPF MIN-OBS))
 )
 
 ; ---------------------------------------------------------------

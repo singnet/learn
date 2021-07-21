@@ -239,19 +239,19 @@ unhappy, painful experience.
    Note `par-for-each` hangs:
             https://debbugs.gnu.org/cgi/bugreport.cgi?bug=26616
 
-* **0.7)** Mandatory (!?)  You'll work with large datasets; default
-           guile is not equipped to deal wit the sizes encountered here.
-           (Maybe? This might be fixed in the newest guile ???)
+* **0.7)** Mandatory (!)  You'll work with large datasets; default
+           guile is not equipped to deal with the sizes encountered here.
            Skipping this step will lead to the error
            `Too many heap sections: Increase MAXHINCR or MAX_HEAP_SECTS`.
            Fix this with:
 ```
       git clone https://github.com/ivmai/bdwgc
       cd bdwgc
-      git checkout release-7_6     # (or newer)
+      git checkout v8.0.4     # (or newer)
       ./autogen.sh
-      ./configure --enable-large-config
-      make; sudo make install
+      mkdir build; cd build;
+      ../configure --enable-large-config
+      make -j; sudo make install
 ```
 
 * **0.8)** Create/edit the `~/.guile` file and add the content below.
@@ -967,9 +967,11 @@ for performing this are located in the `run/3-mst-parsing` directory.
 
 The steps are as follows:
 
-* Pick one of the configuration files `run/0-config/3-*sh` files.
+* Pick one of the configuration files `run-config/3-*sh` files.
   If needed, adjust the configuration. The default configuration
-  should work well, without adjustment.
+  should work well, without adjustment. Here `mpg` is "maximal planar
+  graph" and `mst` is "maximal spanning tree". It seems that `mpg`
+  works better. Maybe.
 
 * Make a copy of the database containing word-pair mutual information.
   The disjunct observation counts will be accumulated into the database,
@@ -1057,31 +1059,31 @@ observed more than 5 times.  The initial dataset is called
 `all_disjunct_dataset`.
 
 ```
-   (rocks-open "rocks:///where/ever/all_disjunct_dataset")
+   (cog-rocks-open "rocks:///where/ever/all_disjunct_dataset")
    (define pca (make-pseudo-cset-api))
    (define psa (add-pair-stars pca))
    (psa 'fetch-pairs)        ;; Load the dataset
-   (rocks-close)             ;; Avoid accidental corruption
+   (cog-rocks-close)         ;; Avoid accidental corruption
    (define psc (add-support-compute psa))
    (psc 'cache-all)          ;; compute subtotals
    (define fsa (add-subtotal-filter psa 40 8 5 #f)) ;; The filter itself
    (define lfa (add-linkage-filter fsa))
-   (rocks-open "rocks:///where/ever/trimmed_dataset.rdb")
+   (cog-rocks-open "rocks:///where/ever/trimmed_dataset.rdb")
    (define fso (make-store lfa))
    (fso 'store-all-elts)     ;; Do NOT store the marginals!
-   (rocks-close)
+   (cog-rocks-close)
    ^D                        ;; Exit.
 ```
 The above just trims; but the marginals are needed for grammatical
 classifcation. So build these, as before, starting with a clean load
 of the atomspace with the new trimmed dataset:
 ```
-   (rocks-open "rocks:///where/ever/trimmed_dataset.rdb")
+   (cog-rocks-open "rocks:///where/ever/trimmed_dataset.rdb")
    (psa 'fetch-pairs)
    (batch-all-pair-mi psa)    ;; MI between words and disjuncts
    (define btr (batch-transpose psa))
    (btr 'mmt-marginals)       ;; Word-pair entropies
-   (rocks-close)
+   (cog-rocks-close)
    ^D                         ;; Exit.
 ```
 

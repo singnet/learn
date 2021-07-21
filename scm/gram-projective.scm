@@ -170,19 +170,17 @@
 ;
 ; Parameter choices
 ; -----------------
-; Gut-sense intuition suggests these possible experiments:
+; Gut-sense intuition suggests that `merge-mifuzz` with a min acceptable
+; MI of about 3 works best. The union fraction should be set to zero.
 ;
-; * Fuzz: use `merge-project` with hard-coded frac=0.3 and cosine
-;   distance with min acceptable cosine=0.65
-;
-; * Discrim: use `merge-discrim` with min acceptable cosine = 0.5
-;
-; * Info: use `merge-project` with hard-coded frac=0.3 and information
-;   distance with min acceptable MI=3
-;
-; Actual measurements (see `grammar-report/grammar-report.pdf`) indicate
-; that these are actually rather good parameter choices; and surprisingly,
-; the `merge-discrim` works better than `merge-project`.
+; Earlier work is summarized in `grammar-report/grammar-report.pdf`.
+; Pretty much everything there used a union-merge fraction of 0.3,
+; which, in reprospect, may have been much too large. Certainly,
+; if the goal is to maximize entropy, then any value greater than zero
+; will fail to do that.  Thus, the only reason to usae a union fraction
+; greater than zero is if one suspects one is trapped in a local
+; maximum, and needs to hop out.  Practical experience shows that this
+; can be a bit risky, and easily corrupts clustering.
 ;
 ; TODO
 ; ----
@@ -270,8 +268,8 @@
   and the result of summing them results in a WordClassNode. Thus,
   by convention, it is assumed that the pairs are (word, disjunct)
   pairs, and LLOBJ was made by `make-pseudo-cset-api` or by
-  `add-shape-vec-api`. The code itself is generic, and may work on
-  other kinds of LLOBJ's too.
+  `add-shape-vec-api`. The code itself is generic, and might work on
+  other kinds of LLOBJ's too. (It might work, but has not been tested.)
 
   LLOBJ is used to access pairs.
   WA and WB should both be of `(LLOBJ 'left-type)`. They should
@@ -676,7 +674,7 @@
   when the corresponding matrix element in the other row is null.
 
   NOISE is the smallest observation count, below which counts
-  will not be divided up, if a marge is performed.
+  will not be divided up, if a merge is performed.
 
   MIN-CNT is the minimum count (l1-norm) of the observations of
   disjuncts that a row is allowed to have, to even be considered for
@@ -691,9 +689,21 @@
   This object provides the following methods:
 
   'merge-predicate -- a wrapper around MPRED above.
-  'merge-function -- the function that actuall performs the merge.
-  'discard-margin? --
-  'discard? --
+  'merge-function -- the function that actually performs the merge.
+  'discard-margin? -- Return #t if count on word is below MIN-CNT.
+                      Uses the marginal counts for this decision.
+                      Used by `trim-and-rank` to ignore this word.
+                      (`trim-and-rank` prepares the list of words to
+                      cluster.)
+  'discard? --        Same as above, but  count is recomputed, instead
+                      of being pulled from the margin. This is required
+                      when a word has been merged, as then the margin
+                      count will be stale (aka wrong, invalid). Used
+                      by `greedy-grow` to ignore the stub of a word
+                      after merging. That is, if all that remains in a
+                      word after merging is some cruft with a count less
+                      than MIN-CNT, it won't be further merged into
+                      anything; it will be ignored.
   'clobber -- invalidate all caches.
 "
 	(define pss (add-support-api STARS))
@@ -757,9 +767,13 @@
 
 (define-public (make-fuzz STARS CUTOFF UNION-FRAC NOISE MIN-CNT)
 "
-  make-fuzz -- Do projection-merge, with a fixed merge fraction.
+  make-fuzz -- Do a cosine-distance projection-merge, with a fixed
+               union-merge fraction.
 
-  Uses the `merge-project` merge style.
+  Uses the `merge-project` merge style. This implements a fixed
+  linear interpolation between overlap-merge and union merge. Recall
+  that the overlap-merge merges all disjuncts that the two parts have
+  in common, while the nion merge merges all disjuncts.
 
   STARS is the object holding the disjuncts. For example, it could
   be (add-dynamic-stars (make-pseudo-cset-api))
@@ -834,10 +848,124 @@
 
 ; ---------------------------------------------------------------
 
+(define-public (make-mifuzz STARS CUTOFF UNION-FRAC NOISE MIN-CNT)
+"
+  make-mifuzz -- Do mutual-information projection-merge, with a fixed
+                 union-merge fraction.
+
+  Uses the `merge-project` merge style. This implements a fixed
+  linear interpolation between overlap-merge and union merge. Recall
+  that the overlap-merge merges all disjuncts that the two parts have
+  in common, while the union merge merges all disjuncts.
+
+  STARS is the object holding the disjuncts. For example, it could
+  be (add-dynamic-stars (make-pseudo-cset-api))
+
+  CUTOFF is the min acceptable MI, for words to be considered
+  mergable.
+
+  UNION-FRAC is the fixed fraction of the union-set of the disjuncts
+  that will be merged.
+
+  NOISE is the smallest observation count, below which counts
+  will not be divided up, if a marge is performed.
+
+  MIN-CNT is the minimum count (l1-norm) of the observations of
+  disjuncts that a word is allowed to have, to even be considered.
+"
+	(define pmi (add-symmetric-mi-compute STARS))
+	(define ptc (add-transpose-compute STARS))
+
+	(define (get-mi wa wb) (pmi 'mmt-fmi wa wb))
+	(define (mpred WORD-A WORD-B)
+		(is-similar? get-mi CUTOFF WORD-A WORD-B))
+
+	; The fraction to merge is fixed.
+	(define (mi-fract WA WB) UNION-FRAC)
+
+	(define (store-mmt row)
+		(store-atom (ptc 'set-mmt-marginals row)))
+
+	(make-merger pmi mpred mi-fract NOISE MIN-CNT store-mmt #t)
+)
+
+; ---------------------------------------------------------------
+
+(define-public (make-midisc STARS CUTOFF NOISE MIN-CNT)
+"
+  make-midisc -- Do mutual-information projection-merge, with a
+                 tapered union-merge fraction.
+
+  Uses the `merge-project` merge style. This adds a very small amount
+  of the union-merge to the overlap-merge.  Recall that the
+  overlap-merge merges all disjuncts that the two parts have in
+  common, while the union merge merges all disjuncts.
+
+  The tapering uses a merge fraction of
+      1/2**(max(MI(a,a), MI(b,b))-CUTOFF)
+  where MI(a,a) and MI(b,b) is the self-mutual information of the two
+  items a and b to be merged.  This merge fraction is chosen such that,
+  very roughly, the MI between the cluster, and the remainder of a and b
+  after merging will be less than CUTOFF ... roughly. The formula is
+  an inexact guesstimate. This could be improved.
+
+  STARS is the object holding the disjuncts. For example, it could
+  be (add-dynamic-stars (make-pseudo-cset-api))
+
+  CUTOFF is the min acceptable MI, for words to be considered
+  mergable.
+
+  NOISE is the smallest observation count, below which counts
+  will not be divided up, if a marge is performed.
+
+  MIN-CNT is the minimum count (l1-norm) of the observations of
+  disjuncts that a word is allowed to have, to even be considered.
+"
+	(define pss (add-support-api STARS))
+	(define pmi (add-symmetric-mi-compute STARS))
+	(define pti (add-transpose-api STARS))
+	(define ptc (add-transpose-compute STARS))
+
+	(define (get-mi wa wb) (pmi 'mmt-fmi wa wb))
+	(define (mpred WORD-A WORD-B)
+		(is-similar? get-mi CUTOFF WORD-A WORD-B))
+
+	(define total-mmt-count (pti 'total-mmt-count))
+	(define ol2 (/ 1.0 (log 2.0)))
+	(define (log2 x) (* (log x) ol2))
+
+	; The self-MI is just the same as (get-mi wrd wrd).
+	; The below is faster than calling `get-mi`; it uses
+	; cached values. Still, it would be better if we
+	; stored a cached self-mi value.
+	(define (get-self-mi wrd)
+		(define len (pss 'right-length wrd))
+		(define mmt (pti 'mmt-count wrd))
+		(log2 (/ (* len len total-mmt-count) (* mmt mmt))))
+
+	; The fraction to merge is a ballpark estimate that attempts
+	; to make sure that the MI between the new cluster and the
+	; excluded bits is less than the cutoff.
+	(define (mi-fraction WA WB)
+		(define mihi (max (get-self-mi WA) (get-self-mi WB)))
+		(expt 2.0 (- CUTOFF mihi)))
+
+	(define (store-mmt row)
+		(store-atom (ptc 'set-mmt-marginals row)))
+
+	(make-merger pmi mpred mi-fraction NOISE MIN-CNT store-mmt #t)
+)
+
+; ---------------------------------------------------------------
+
 (define-public (make-disinfo STARS CUTOFF NOISE MIN-CNT)
 "
   make-disinfo -- Do a \"discriminating\" merge, using MI for
   similarity.
+
+  Deprecated. Based on diary results, this appears to give poor results.
+  Suggest using either `make-mifuzz` with a zero or a very small union
+  frac, or to use  `make-midisc`.
 
   Use `merge-project` style merging, with linear taper of the union-merge.
   This is the same as `merge-discrim` above, but using MI instead
