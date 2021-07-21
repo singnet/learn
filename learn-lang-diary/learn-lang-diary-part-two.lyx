@@ -7915,5 +7915,4503 @@ Start again, this time with a simple, relatively unambiguous, relatively
  easier?
 \end_layout
 
+\begin_layout Section*
+July 2021 - Projective Merge and Entropy Maximization
+\end_layout
+
+\begin_layout Standard
+OK, Above work resulted in a bunch of automation scripts, and a few bug-fixes,
+ a completion of the 
+\begin_inset Quotes eld
+\end_inset
+
+shapes
+\begin_inset Quotes erd
+\end_inset
+
+ work, but not much in the way of insight.
+ So, restart processing of English.
+ A rather small corpus reveals a conceptual bug in the projective-merge
+ strategy, when used with mutual information.
+ Projective merge works great (I think ..
+ I guess??) with cosine distance, but not MI.
+ This section describes the problem, and explores solutions.
+\end_layout
+
+\begin_layout Standard
+The small corpus is the 
+\begin_inset Quotes eld
+\end_inset
+
+run-2
+\begin_inset Quotes erd
+\end_inset
+
+ corpus of the English work, its a truncated copy of 
+\begin_inset Quotes eld
+\end_inset
+
+tranche-1
+\begin_inset Quotes erd
+\end_inset
+
+ consisting of 3026 articles, 426941 sentences, 8133834 word instances.
+ Word-pair counting went well (except for the handling error that truncated
+ the corpus), as did disjunct formation.
+ The MM^T stats were computed for the disjuncts, including shapes.
+ Everything is fine (nominal) until merge.
+ Projective merge fails dramatically – unrelated words are being merged.
+ Why?
+\end_layout
+
+\begin_layout Standard
+What's the pair-wise MI? The MI here is called the 
+\begin_inset Quotes eld
+\end_inset
+
+entropic similarity
+\begin_inset Quotes erd
+\end_inset
+
+ in other texts in this directory.
+ It's kind-of the same thing, once one adjusts defintions appropriately.
+ Lets call it MI for short.
+ Lets explore the top seven words that got merged, shown in the table below.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="9" columns="8">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell multicolumn="1" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Symmetric-MI
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+of
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+to
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+in
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+he
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+it
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+that
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+said
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+of
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.460
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.720
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+4.443
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-1.74
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-1.44
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.619
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-1.43
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+to
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+6.848
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.019
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.449
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-0.18
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.935
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.070
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+in
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+5.699
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.348
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.255
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.517
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-0.53
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+he
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.968
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.854
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.691
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.198
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+it
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2.405
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.819
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.646
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+that
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.664
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.468
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+said
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.223
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Looks pretty reasonable, right? The self-MI of 
+\begin_inset Quotes eld
+\end_inset
+
+it
+\begin_inset Quotes erd
+\end_inset
+
+ is shockingly low.
+ Some of the other self-MI's are on the low side, too.
+ But whatever.
+ Small dataset.
+ Asking for an MI > 3.0 for a merge to take place seems like it should provide
+ good results.
+\end_layout
+
+\begin_layout Standard
+The current code base for projective merge recommends a fraction of 0.187
+ for merging 
+\begin_inset Quotes eld
+\end_inset
+
+of
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+to
+\begin_inset Quotes erd
+\end_inset
+
+, which seems low, but acceptable.
+ So lets do the merge, by hand (se notes in `run-2/README` for details.
+ The result is `(WordClassNode 
+\begin_inset Quotes eld
+\end_inset
+
+of to
+\begin_inset Quotes erd
+\end_inset
+
+)`.
+ What is the MI between this, and the other words? A disaster.
+ See table below.
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="5" columns="9">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell multicolumn="1" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Symmetric-MI
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multicolumn="2" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+of-to
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+of
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+to
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+in
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+he
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+it
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+that
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+said
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+of-to
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.009
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+8.411
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+8.216
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+6.044
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.937
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.629
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2.970
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.900
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+of
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11.70
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $-\infty$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+5.294
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-4.44
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-3.34
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.012
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-3.25
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+to
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11.92
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.558
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.874
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-0.25
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.432
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-1.97
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+OK, so what's wrong with that? The naive expectation is that the MI(cluster,
+ 
+\begin_inset Quotes eld
+\end_inset
+
+of
+\begin_inset Quotes erd
+\end_inset
+
+) and MI(cluster, 
+\begin_inset Quotes eld
+\end_inset
+
+to
+\begin_inset Quotes erd
+\end_inset
+
+) should be low or negative.
+ It's not - its huge.
+ The naive expectation is that the MI of the cluster to the non-preposition
+ words should remain near zero (small positive or negative) and instead
+ it got higher, not lower! Yow!
+\end_layout
+
+\begin_layout Standard
+Note that the 
+\begin_inset Quotes eld
+\end_inset
+
+of
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+to
+\begin_inset Quotes erd
+\end_inset
+
+ vectors are the new vectors, with the projected parts removed.
+ Thus, the new MI (of,to)=
+\begin_inset Formula $-\infty$
+\end_inset
+
+ is as expected: all overlap is now completely gone.
+ That the MI(of, non-prep) and MI(to, non-prep) has gotten lower is a good
+ sign.
+\end_layout
+
+\begin_layout Standard
+So what's going wrong, here? Well, we failed to define the projective merge
+ in such a way that we minimize and maximize the assorted overlaps.
+ So lets fix that.
+\end_layout
+
+\begin_layout Subsubsection*
+Conclusion
+\end_layout
+
+\begin_layout Standard
+The following sections explore the problem above.
+ The answer, in retrospect, appears to be obvious: of the paramterized projectiv
+e merge, only the overlap merge maximizes entropy.
+ Ading in any fraction of the union merge lowers the total mutual information.
+ It smears out the word-senses, and damages word-sense disambiguation.
+\end_layout
+
+\begin_layout Standard
+If the answer is so obvious, then how did we get into this mess to begin
+ with? Well, it seemed, at the time, that, because the input data is so
+ noisy, that the number of observations is so incomplete, that there might
+ be some advantage for extending the overlap merge with some 
+\begin_inset Quotes eld
+\end_inset
+
+small
+\begin_inset Quotes erd
+\end_inset
+
+ fraction of the union merge.
+ In retrospect, this appears to have been a failed idea.
+\end_layout
+
+\begin_layout Standard
+The overall concern is still valid: for a small corpus, there is a lot of
+ noise, and perhaps there does need to be some kind of generalization taking
+ place.
+ But perhaps the smearing provided by the union merge is ...
+ not a good idea ...
+ at present.
+ However ...
+\end_layout
+
+\begin_layout Standard
+However, trying to always maximize the entropy runs the risk of stumbling
+ into local maxima, and being trapped by them.
+ This is an old machine-learning problem: how to avoid local maxima.
+ The union merge might eventually be a good way of jumping out of local
+ maxima.
+ However, at this time, I don't understand what's going on clearly enough.
+ It seems to have been a premature feature.
+ Maybe.
+ At any rate, future work should set a baseline of pure overlap merges,
+ zero union merges.
+ If any part of the union is to be mixed in, it should probably be quite
+ small – well less than a percent, rather than the 30% which almost all
+ earlier work made use of.
+\end_layout
+
+\begin_layout Standard
+If the union-fraction is greater than zero, then it should be kept small
+ enough so that the MI between the newly created cluster, and the remainder
+ of the words that were put into the cluster remains less than the cutoff
+ MI that is used to determine if a merge is to be undertaken.
+ Examining the experimental data, below, indicates that this fraction is
+ indeed tiny: its about 0.003 (a third of a percent) for the case that was
+ examined.
+\end_layout
+
+\begin_layout Standard
+Rule of thumb: if there is a merge fraction, then if should be set to 
+\begin_inset Formula 
+\[
+f=1/2^{\max(MI(a,a),MI(b,b))-MI_{cut}}
+\]
+
+\end_inset
+
+where 
+\begin_inset Formula $a,b$
+\end_inset
+
+ are the two words to be merged, 
+\begin_inset Formula $MI(a,a)$
+\end_inset
+
+ is the self-MI and 
+\begin_inset Formula $MI_{cut}$
+\end_inset
+
+ is the cutoff, below which a merge will not be performed.
+ Any fraction larger than this will results in an MI between the new class,
+ and the remainder of the words 
+\begin_inset Formula $a,b$
+\end_inset
+
+ that is 
+\emph on
+larger
+\emph default
+ than the original 
+\begin_inset Formula $MI(a,b)$
+\end_inset
+
+ itself ...
+ and that's a disaaster.
+ This is a rule of thumb, because, I guess a more precise value could be
+ given, but getting it requires some more algebra which I'm too lazy to
+ do.
+\end_layout
+
+\begin_layout Subsection*
+Similarity and Projection
+\end_layout
+
+\begin_layout Standard
+Lets' review the definition for the MI, and the projection.
+\end_layout
+
+\begin_layout Subsubsection*
+Entropic Similarity and Cosine Distance
+\end_layout
+
+\begin_layout Standard
+This is a copy of what is in the `connector-sets-revised.pdf` paper, chapter
+ 6 (pages 39-44).
+ There some additional experimental data in the `diary-part-one.pdf`, pages
+ 102-103.
+\end_layout
+
+\begin_layout Standard
+A word 
+\begin_inset Formula $w$
+\end_inset
+
+ is associated with a vector 
+\begin_inset Formula $N\left(w,d_{j}\right)$
+\end_inset
+
+ where the 
+\begin_inset Formula $d_{j}$
+\end_inset
+
+ are the disjuncts observed on the word, and 
+\begin_inset Formula $N$
+\end_inset
+
+ is a count of the number of times that the word-disjunct pair was observed.
+\end_layout
+
+\begin_layout Standard
+For words 
+\begin_inset Formula $w,u$
+\end_inset
+
+, define the dot product (inner product) between the words as 
+\begin_inset Formula 
+\[
+i\left(u,w\right)=\sum_{d}N\left(u,d\right)N\left(w,d\right)
+\]
+
+\end_inset
+
+This can be turned into a 
+\emph on
+bona-fide
+\emph default
+ joint probability by writing
+\begin_inset Formula 
+\[
+p\left(u,w\right)=i\left(u,w\right)/i\left(*,*\right)
+\]
+
+\end_inset
+
+where, as always, * denotes a wild-card – here, a sum over all words:
+\begin_inset Formula 
+\[
+i\left(*,*\right)=\sum_{u,w}i\left(u,w\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+There is a corresponding marginal probability
+\begin_inset Formula 
+\[
+p\left(w\right)=p\left(w,*\right)=\frac{i\left(w,*\right)}{i\left(*,*\right)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The entropic similarity between two words is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+MI\left(u,w\right)=\log_{2}\frac{p\left(u,w\right)}{p\left(u\right)p\left(w\right)}
+\]
+
+\end_inset
+
+and written in this form, this is clearly the convetional (fractional) MI
+ between two words.
+\end_layout
+
+\begin_layout Standard
+It's worth comparing this to the cosine distance
+\begin_inset Formula 
+\[
+\theta\left(u,w\right)=\arccos\frac{p\left(u,w\right)}{\sqrt{p\left(u,u\right)p\left(w,w\right)}}
+\]
+
+\end_inset
+
+Note that they both start with the dot product in the numerator.
+ The cosine distance is invariant under rotations (orthogonal transformations)
+ in Euclidean space.
+ However, probability space is not Eucliden, so it is a 
+\begin_inset Quotes eld
+\end_inset
+
+category error
+\begin_inset Quotes erd
+\end_inset
+
+ to work with cosine distance applied to probabilities.
+ By contrast, the MI is 
+\begin_inset Quotes eld
+\end_inset
+
+obviously correct
+\begin_inset Quotes erd
+\end_inset
+
+ when working with probabilities.
+ In practice, the two are correlated.
+ See page 43 of `connector-sets-revised.pdf` for experimental data.
+\end_layout
+
+\begin_layout Standard
+The code for computing this stuff can be found in the AtomSpace github repo,
+ https://github.com/opencog/atomspace/blob/master/opencog/matrix/symmetric-mi.scm
+ To avoid absurdly long compute times, this code uses the MM^T concept (describe
+d in connector-sets) to perform and cache partial results that can be quickly
+ combined to obtain the desired MI value.
+ Note, its impossible to pre-compute the MI for any but the smallest vocabularie
+s, as there are just too many words.
+\end_layout
+
+\begin_layout Subsubsection*
+Projection Merge
+\end_layout
+
+\begin_layout Standard
+Given two words (word-vectors), the projection merge create three new vectors:
+ a merged vector, and remainders of the two original vectors.
+ This is most easily described in terms of the basis vectors.
+ Define the set of all disjuncts with non-zero counts on word 
+\begin_inset Formula $w$
+\end_inset
+
+:
+\begin_inset Formula 
+\[
+D\left(w\right)=\left\{ d:N\left(w,d\right)\ne0\right\} 
+\]
+
+\end_inset
+
+Given a real number 
+\begin_inset Formula $0\le f\le1$
+\end_inset
+
+, the merged vector 
+\begin_inset Formula $g$
+\end_inset
+
+ of the two words 
+\begin_inset Formula $w,u$
+\end_inset
+
+ has counts
+\begin_inset Formula 
+\[
+N\left(g,d\right)=\begin{cases}
+N\left(w,d\right)+N\left(u,d\right) & d\in D\left(w\right)\cap D\left(u\right)\\
+fN\left(w,d\right) & d\in D\left(w\right)\backslash D\left(u\right)\\
+fN\left(u,d\right) & d\in D\left(u\right)\backslash D\left(w\right)
+\end{cases}
+\]
+
+\end_inset
+
+Clearly, the support for 
+\begin_inset Formula $g$
+\end_inset
+
+ is 
+\begin_inset Formula $D\left(g\right)=D\left(w\right)\cup D\left(u\right)$
+\end_inset
+
+ whenever 
+\begin_inset Formula $f>0$
+\end_inset
+
+ and it is 
+\begin_inset Formula $D\left(g\right)=D\left(w\right)\cap D\left(u\right)$
+\end_inset
+
+ when 
+\begin_inset Formula $f=0$
+\end_inset
+
+.
+ The two new words are 
+\begin_inset Formula $u^{\prime}$
+\end_inset
+
+ and 
+\begin_inset Formula $w^{\prime}$
+\end_inset
+
+ which are just the old words, with the overlaps removed:
+\begin_inset Formula 
+\[
+N\left(w^{\prime},d\right)=\begin{cases}
+0 & d\in D\left(w\right)\cap D\left(u\right)\\
+\left(1-f\right)N\left(w,d\right) & d\in D\left(w\right)\backslash D\left(u\right)
+\end{cases}
+\]
+
+\end_inset
+
+ and likewise for 
+\begin_inset Formula $N\left(u^{\prime},d\right)$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+This projection merge is designed to preserve the total count:
+\begin_inset Formula 
+\begin{equation}
+N\left(g,d\right)+N\left(w^{\prime},d\right)+N\left(u^{\prime},d\right)=N\left(w,d\right)+N\left(u,d\right)\label{eq:detailed balance}
+\end{equation}
+
+\end_inset
+
+This equation can be called 
+\begin_inset Quotes eld
+\end_inset
+
+detailed balance
+\begin_inset Quotes erd
+\end_inset
+
+, as it is in thermodynamics.
+\end_layout
+
+\begin_layout Standard
+The merged vector 
+\begin_inset Formula $g$
+\end_inset
+
+ is meant to corrspond to a 
+\begin_inset Quotes eld
+\end_inset
+
+grammatical class
+\begin_inset Quotes erd
+\end_inset
+
+; it is a vector just as any other word-vector, but it is meant to capture
+ the 
+\begin_inset Quotes eld
+\end_inset
+
+average
+\begin_inset Quotes erd
+\end_inset
+
+ of the two words it is made out of.
+ The role of the fraction 
+\begin_inset Formula $f$
+\end_inset
+
+ is to handle the situation of the words 
+\begin_inset Formula $u$
+\end_inset
+
+ and 
+\begin_inset Formula $w$
+\end_inset
+
+ having multiple word-senses.
+ The idea here is that the set 
+\begin_inset Formula $D\left(w\right)\cap D\left(u\right)$
+\end_inset
+
+ captures those disjuncts for which both 
+\begin_inset Formula $u$
+\end_inset
+
+ and 
+\begin_inset Formula $w$
+\end_inset
+
+ have teh same word-sense (for example, the parts of 
+\begin_inset Formula $u$
+\end_inset
+
+ and 
+\begin_inset Formula $w$
+\end_inset
+
+ that are nouns) whereas 
+\begin_inset Formula $D\left(w\right)\backslash D\left(u\right)$
+\end_inset
+
+ and 
+\begin_inset Formula $D\left(u\right)\backslash D\left(w\right)$
+\end_inset
+
+ are the disjuncts that belong to other word-senses (
+\emph on
+e.g.
+
+\emph default
+ the parts of 
+\begin_inset Formula $u$
+\end_inset
+
+ and 
+\begin_inset Formula $w$
+\end_inset
+
+ that are verbs).
+ Due to inadequate statistics and systemic noise, a non-zero 
+\begin_inset Formula $f$
+\end_inset
+
+ might help in smoothing out erroneous assignments of disjuncts to word-senses.
+ In the example above, a value of 
+\begin_inset Formula $f=0.187$
+\end_inset
+
+ was used.
+\end_layout
+
+\begin_layout Standard
+The projection described above is the same as that described and implemented
+ in https://github.com/opencog/learn/blob/master/scm/gram-projective.scm (as
+ of this writing).
+\end_layout
+
+\begin_layout Subsection*
+Maximum Mutual Information
+\end_layout
+
+\begin_layout Standard
+Well, obviously as the example above demonstrates, there's something not
+ quite right with the projection merge, at least, when one works with mutual
+ information.
+\end_layout
+
+\begin_layout Standard
+The projection merge does seem to make sense (mostly) when one thinks of
+ vectors that inhabit Euclidean space: One can easily define the sum of
+ two vectors; and to deal with the fact that the word vectors are themselves
+ sums of multiple senses, one can try to project back out the parts that
+ don't have shared support.
+ The problem with working in Euclidean space is that the counts can go negative:
+ the inner product on Euclidean space really is the cosine (dot) product,
+ and simple linear algebra sense some vector components negative.
+ This is undesirable, as it prevents counts from being interpreted as statistica
+l frequencies.
+\end_layout
+
+\begin_layout Standard
+For probabilities, the correct goal is to maximize the mutual information
+ (maximize the entropy).
+ There seem to be two ways to define the total MI of the system.
+ One is to write 
+\begin_inset Formula 
+\[
+MI_{tot}=\sum_{u,w}p\left(u,w\right)MI\left(u,w\right)
+\]
+
+\end_inset
+
+Note that since both 
+\begin_inset Formula $p$
+\end_inset
+
+ and MI are symmetric, this has the effect of double-counting the off-diagonal
+ entries.
+ This seems to underweight the diagonal.
+ Another possibility is to double-weight the diagonal:
+\begin_inset Formula 
+\[
+MI_{alt}=\sum_{u\ge w}p\left(u,w\right)MI\left(u,w\right)
+\]
+
+\end_inset
+
+Not clear, right now, which is better or more correct.
+\end_layout
+
+\begin_layout Standard
+A bit of articulation helps clarify things.
+ From the defintion of MI, one has
+\begin_inset Formula 
+\begin{align*}
+MI_{tot}= & \sum_{u,w}p\left(u,w\right)MI\left(u,w\right)\\
+= & \sum_{u,w}p\left(u,w\right)\log_{2}\frac{p\left(u,w\right)}{p\left(u\right)p\left(w\right)}\\
+= & \sum_{u,w}p\left(u,w\right)\log_{2}p\left(u,w\right)-\sum_{u,w}p\left(u,w\right)\log_{2}p\left(u\right)-\sum_{u,w}p\left(u,w\right)\log_{2}p\left(w\right)\\
+= & \sum_{u,w}p\left(u,w\right)\log_{2}p\left(u,w\right)-2\sum_{w}p\left(w\right)\log_{2}p\left(w\right)\\
+= & H_{joint}-2H_{marg}
+\end{align*}
+
+\end_inset
+
+where 
+\begin_inset Formula 
+\[
+H_{marg}=\sum_{w}p\left(w\right)\log_{2}p\left(w\right)
+\]
+
+\end_inset
+
+is the 
+\begin_inset Quotes eld
+\end_inset
+
+marginal entropy
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsubsection*
+Detailed balance
+\end_layout
+
+\begin_layout Standard
+Detailed balance, eqn 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:detailed balance"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ means that the merge affects only the rows and columns of the merged words.
+ This is somehow 
+\begin_inset Quotes eld
+\end_inset
+
+intuitively obvious
+\begin_inset Quotes erd
+\end_inset
+
+, but I'll belabor the topic here, to make sure we're not making any mistakes.
+ In the following, let 
+\begin_inset Formula $a,b$
+\end_inset
+
+ be the two words to be merged, creating a category 
+\begin_inset Formula $g$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Lemma:
+\series default
+ For 
+\begin_inset Formula $w\ne a,b$
+\end_inset
+
+, the row and column sums are unaffected by the merge.
+ That is, one has 
+\begin_inset Formula $i\left(w,*\right)=i^{\prime}\left(w,*\right)$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+Proof: 
+\emph default
+Let 
+\begin_inset Formula $a,b$
+\end_inset
+
+ be the two words to be merged.
+ Then for 
+\begin_inset Formula $w\ne a,b$
+\end_inset
+
+, one has
+\begin_inset Formula 
+\begin{align*}
+i\left(w,a\right)+i\left(w,b\right)= & \sum_{d}N\left(w,d\right)\left[N\left(a,d\right)+N\left(b,d\right)\right]\\
+= & \sum_{d}N\left(w,d\right)\left[N\left(g,d\right)+N\left(a^{\prime},d\right)+N\left(b^{\prime},d\right)\right]\\
+= & i\left(w,g\right)+i\left(w,a^{\prime}\right)+i\left(w,b^{\prime}\right)
+\end{align*}
+
+\end_inset
+
+No other sums are affected, so that, for 
+\begin_inset Formula $u,w\ne a,b$
+\end_inset
+
+ one has
+\begin_inset Formula 
+\[
+i\left(w,u\right)=i^{\prime}\left(w,u\right)
+\]
+
+\end_inset
+
+Therefore, 
+\begin_inset Formula 
+\begin{align*}
+i\left(w,*\right)= & \sum_{u}i\left(w,u\right)\\
+= & i\left(w,a\right)+i\left(w,b\right)+\sum_{u\ne a,b}i\left(w,u\right)\\
+= & i\left(w,g\right)+i\left(w,a^{\prime}\right)+i\left(w,b^{\prime}\right)+\sum_{u\ne a,b}i\left(w,u\right)\\
+= & i^{\prime}\left(w,*\right)
+\end{align*}
+
+\end_inset
+
+where the 
+\begin_inset Formula $i^{\prime}$
+\end_inset
+
+ sum includes (runs over) 
+\begin_inset Formula $a^{\prime},b^{\prime}$
+\end_inset
+
+ and 
+\begin_inset Formula $g$
+\end_inset
+
+.
+ 
+\begin_inset Formula $\square$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This enables a key theorem.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Theorem: 
+\series default
+The total count 
+\begin_inset Formula $i\left(*,*\right)$
+\end_inset
+
+ is unaffected by the merge.
+ That is, 
+\begin_inset Formula $i^{\prime}\left(*,*\right)=i\left(*,*\right)$
+\end_inset
+
+ where the prime denotes the post-merge sum.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+Proof: 
+\emph default
+Split out the affected rows and columns.
+ First, the corner case:
+\begin_inset Formula 
+\begin{align*}
+i\left(a,a\right)+i\left(a,b\right)+i\left(b,a\right)+i\left(b,b\right)= & \sum_{d}\left[N\left(a,d\right)+N\left(b,d\right)\right]\left[N\left(a,d\right)+N\left(b,d\right)\right]\\
+= & \sum_{d}\left[N\left(g,d\right)+N\left(a^{\prime},d\right)+N\left(b^{\prime},d\right)\right]\left[N\left(g,d\right)+N\left(a^{\prime},d\right)+N\left(b^{\prime},d\right)\right]\\
+= & i\left(g,g\right)+i\left(g,a^{\prime}\right)+i\left(g,b^{\prime}\right)+i\left(a^{\prime},g\right)+i\left(a^{\prime},a^{\prime}\right)+i\left(b^{\prime},g\right)+i\left(b^{\prime},b^{\prime}\right)\\
+= & i\left(g,g\right)+i\left(a^{\prime},a^{\prime}\right)+i\left(b^{\prime},b^{\prime}\right)+2i\left(g,a^{\prime}\right)+2i\left(g,b^{\prime}\right)
+\end{align*}
+
+\end_inset
+
+Two of the terms vanish: 
+\begin_inset Formula $i\left(a^{\prime},b^{\prime}\right)=i\left(b^{\prime},a^{\prime}\right)=0$
+\end_inset
+
+, which is arrived at by noting that the merge has arranged that 
+\begin_inset Formula $N\left(a^{\prime},d\right)=N\left(b^{\prime},d\right)=0$
+\end_inset
+
+ for 
+\begin_inset Formula $d\in D\left(a\right)\cap D\left(b\right)$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Even if these terms did not vanish, one still arrives at
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+i\left(a,*\right)+i\left(b,*\right)=i\left(g,*\right)+i\left(a^{\prime},*\right)+i\left(b^{\prime},*\right)
+\]
+
+\end_inset
+
+Plugging through,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+i\left(*,*\right)= & \sum_{u}i\left(u,*\right)\\
+= & i\left(a,*\right)+i\left(b,*\right)+\sum_{u\ne a,b}i\left(u,*\right)\\
+= & i\left(g,*\right)+i\left(a^{\prime},*\right)+i\left(b^{\prime},*\right)+\sum_{u\ne a,b}i\left(u,*\right)\\
+= & \sum_{u^{\prime}}i\left(u^{\prime},*\right)\\
+= & i^{\prime}\left(*,*\right)
+\end{align*}
+
+\end_inset
+
+Phew.
+ That was complicated, given that the result seems obvious.
+ 
+\begin_inset Formula $\square$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Corrollary
+\series default
+: Likewise, for the probabilities: if 
+\begin_inset Formula $a,b$
+\end_inset
+
+ are the two words to be merged into 
+\begin_inset Formula $g,$
+\end_inset
+
+then 
+\begin_inset Formula $p\left(a,*\right)+p\left(b,*\right)=p\left(g,*\right)+p\left(a^{\prime},*\right)+p\left(b^{\prime},*\right)$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+Proof: 
+\emph default
+Divide by 
+\begin_inset Formula $i\left(*,*\right)$
+\end_inset
+
+.
+ 
+\begin_inset Formula $\square$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Corrollary:
+\series default
+ The marginal probability of rows/columns not being merged is unaffected
+ by the merge.
+ That is, 
+\begin_inset Formula $p\left(w\right)=p^{\prime}\left(w\right)$
+\end_inset
+
+ for 
+\begin_inset Formula $w\ne a,b$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+Proof:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+p\left(w\right)=p\left(w,*\right)=\frac{i\left(w,*\right)}{i\left(*,*\right)}=\frac{i^{\prime}\left(w,*\right)}{i^{\prime}\left(*,*\right)}=p^{\prime}\left(w\right)
+\]
+
+\end_inset
+
+Follows from the lemma and the theorem above.
+ 
+\begin_inset Formula $\square$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Corrollary:
+\series default
+ The mutual information of rows/columns not being merged is unaffected by
+ the merge.
+ That is, 
+\begin_inset Formula $MI\left(u,w\right)=MI^{\prime}\left(u,w\right)$
+\end_inset
+
+ for 
+\begin_inset Formula $u,w\ne a,b$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+Proof:
+\emph default
+
+\begin_inset Formula 
+\begin{align*}
+MI\left(u,w\right)= & \log_{2}\frac{p\left(u,w\right)}{p\left(u\right)p\left(w\right)}\\
+= & \log_{2}\frac{p^{\prime}\left(u,w\right)}{p^{\prime}\left(u\right)p^{\prime}\left(w\right)}=MI^{\prime}\left(u,w\right)
+\end{align*}
+
+\end_inset
+
+Follows as before.
+ 
+\begin_inset Formula $\square$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+From the above, it is clear that the 
+\begin_inset Formula $MI_{tot}$
+\end_inset
+
+ splits into an nvariant part, and a part affected by the merge.
+ Write 
+\begin_inset Formula 
+\begin{align*}
+MI_{tot}= & \frac{1}{2}\sum_{u,w}p\left(u,w\right)MI\left(u,w\right)\\
+= & \frac{1}{2}\sum_{u,w=a,b}p\left(u,w\right)MI\left(u,w\right)+\frac{1}{2}\sum_{u,w\ne a,b}p\left(u,w\right)MI\left(u,w\right)\\
+= & MI_{merge}+MI_{invariant}
+\end{align*}
+
+\end_inset
+
+The focus is then on how 
+\begin_inset Formula $MI_{merge}$
+\end_inset
+
+ changes.
+ The change in the mutual information due to merging is captured by the
+ difference, defined as 
+\begin_inset Formula 
+\begin{equation}
+S=\sum_{u,w=g,a^{\prime},b^{\prime}}p\left(u,w\right)MI\left(u,w\right)-\sum_{u,w=a,b}p\left(u,w\right)MI\left(u,w\right)\label{eq:relative entropy}
+\end{equation}
+
+\end_inset
+
+A suitable name for this would be the 
+\begin_inset Quotes eld
+\end_inset
+
+relative entropy
+\begin_inset Quotes erd
+\end_inset
+
+, I guess.
+ Seems reasonable.
+\end_layout
+
+\begin_layout Subsection*
+Experimental Exploration
+\end_layout
+
+\begin_layout Standard
+The goal of later sections will be to find the extrema (maxima, minima)
+ of eqn 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:relative entropy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ by algebraic means: that is, to find a value for the parameter 
+\begin_inset Formula $f$
+\end_inset
+
+ that yeilds the projective merge that maximizes the mutual information.
+ As it turns out, a whole lot of rather tedious algebra is required.
+ Thus, its time for an experimental interlude.
+ Given the dataset above, we can vary the merge parameter by hand, and see
+ what happens.
+\end_layout
+
+\begin_layout Standard
+First, a review os the dataset and the computational techniques.
+ The dataset is `r2-mpg-trim-40-8-5.rdb`.
+ It contains 6029 words and 98102 disjuncts, and a total of 171922 word-disjunct
+ pairs that were observed a total of 4006152 times.
+ That is, each word/disjunct pair was observed an average of 23.302 times.
+ The dataset is very sparse, with a log2 sparsity of 11.748.
+ This is a trimmed dataset: all words with less than 40 observations were
+ discared; all disjuncts with less than 8 observations were discarded, and
+ all pairs with less than 5 observations were discarded.
+ See the experiment README file for more info on row and column support,
+ average lengths, etc.
+\end_layout
+
+\begin_layout Standard
+Here are the probabilities and MI, before merge:
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="4" columns="3">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+word-pair
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $p\left(u,w\right)$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $MI\left(u,w\right)$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+of,of
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.199e-3
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.460
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+of,to
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.599e-5
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.720
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+to,to
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+5.623e-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+6.848
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The total probability is then 1.913e-3 and the weighted MI is 1.336e-2 and
+ the averge MI is then 6.9829.
+ To repeat:
+\begin_inset Formula 
+\begin{align*}
+\sum_{u,w=a,b}p\left(u,w\right) & =1.913\times10^{-3}\\
+\sum_{u,w=a,b}p\left(u,w\right)MI\left(u,w\right) & =1.336\times10^{-2}\\
+\frac{\sum_{u,w=a,b}p\left(u,w\right)MI\left(u,w\right)}{\sum_{u,w=a,b}p\left(u,w\right)} & =6.9829
+\end{align*}
+
+\end_inset
+
+for 
+\begin_inset Formula $a,b=of,to$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Lets repeat this calculation, after merging, with 
+\begin_inset Formula $f=0.18715$
+\end_inset
+
+ as before.
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="7" columns="3">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+pair
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $p\left(u,w\right)$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $MI\left(u,w\right)$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+of,of
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+4.831E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11.695
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+to,to
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.153E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11.923
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+g,g
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.465E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.009
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+g,of
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.105E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+8.4107
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+g,to
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.208E-5
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+8.2156
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+total
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.910E-3
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.431
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The MI reported in the total column is the paramter-dependent entropy from
+ above:
+\begin_inset Formula 
+\[
+S^{\prime}=\sum_{u,w=g,a^{\prime},b^{\prime}}p\left(u,w\right)MI\left(u,w\right)
+\]
+
+\end_inset
+
+where 
+\begin_inset Formula $a^{\prime}$
+\end_inset
+
+ is what's left of the vector for the word 
+\begin_inset Quotes eld
+\end_inset
+
+of
+\begin_inset Quotes erd
+\end_inset
+
+, after projection-merging the common part.
+ Likewise, 
+\begin_inset Formula $b^{\prime}$
+\end_inset
+
+ is what's left of 
+\begin_inset Quotes eld
+\end_inset
+
+to
+\begin_inset Quotes erd
+\end_inset
+
+.
+ It is numerically confirmed that 
+\begin_inset Formula $a^{\prime}$
+\end_inset
+
+ and 
+\begin_inset Formula $b^{\prime}$
+\end_inset
+
+ are orthogonal to each-other: that 
+\begin_inset Formula $p\left(a^{\prime},b^{\prime}\right)=0$
+\end_inset
+
+ after the merge.
+ This is as expected — the common components have been merged.
+ That 
+\begin_inset Formula $p\left(g,a^{\prime}\right)\ne0$
+\end_inset
+
+ is not surprising: an additional portion of 
+\begin_inset Formula $a$
+\end_inset
+
+ was merged into 
+\begin_inset Formula $g$
+\end_inset
+
+, beyond what is strictly possible with the overlap merge.
+ That is, 
+\begin_inset Formula $g$
+\end_inset
+
+ and 
+\begin_inset Formula $a^{\prime}$
+\end_inset
+
+ are intentionally not orthogonal.
+ That's what this is all about – finding out if something broader than a
+ pure overlap merge is somehow advantageous.
+\end_layout
+
+\begin_layout Standard
+Annoyingly, the detailed balance seems to be a bit off — 1.910e-3 
+\emph on
+vs.
+
+\emph default
+ 1.913e-3 before.
+ That's a fairly hefty amount of rounding error.
+ Surprisingly large...
+ There are 7620 sections and 7620 shapes being merged; calculations should
+ be double-precision, so this rounding error is irritating.
+\end_layout
+
+\begin_layout Standard
+Anyway, that's the baseline.
+ Lets try a range of merge fractions.
+ Again, to reiterate: 
+\begin_inset Formula $f=0$
+\end_inset
+
+ corresponds to a pure overlap projection merge: the cluster 
+\begin_inset Formula $g$
+\end_inset
+
+ consists of only those disjuncts that are shared in common by 
+\begin_inset Formula $a$
+\end_inset
+
+ and 
+\begin_inset Formula $b$
+\end_inset
+
+.
+ Setting 
+\begin_inset Formula $f=1$
+\end_inset
+
+ corresponds to the union merge: all disjuncts on 
+\begin_inset Formula $a$
+\end_inset
+
+ and 
+\begin_inset Formula $b$
+\end_inset
+
+ are moved into 
+\begin_inset Formula $g$
+\end_inset
+
+ so that 
+\begin_inset Formula $a^{\prime}$
+\end_inset
+
+ and 
+\begin_inset Formula $b^{\prime}$
+\end_inset
+
+ are empty after the merge.
+ Other fractions 
+\begin_inset Formula $0<f<1$
+\end_inset
+
+ interpolate linearly between the overlap merge and the union merge.
+ The table below shows what happens.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="19" columns="7">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+frac
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+total MI
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MI(g,g)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MI(g,of)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MI(g,to)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+p(of,of)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+p(g,of)
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.0
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11.312
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.499
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $-\infty$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $-\infty$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.312E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1e-6
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11.312
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.499
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-8.816
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-9.011
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.311E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.27E-10
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1e-5
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11.311
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.499
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-5.494
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-5.689
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.311E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.267E-9
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1e-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11.310
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.498
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-2.173
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-2.368
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.310E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.266E-8
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.001
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11.297
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.495
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.1478
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.9527
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.297E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.260E-7
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.002
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11.285
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.492
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2.1461
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.9510
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.282E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.450E-6
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.005
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11.253
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.482
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.4630
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.2679
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.239E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.615E-6
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.01
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11.207
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.465
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+4.4546
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+4.2595
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.166E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.194E-6
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.02
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11.129
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.433
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+5.4379
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+5.2428
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.022E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.424E-5
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.05
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.943
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.340
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+6.7110
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+6.5159
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+6.599E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.452E-5
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.1
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.714
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.203
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.6330
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.4379
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+5.922E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+6.540E-5
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.187
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.431
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.009
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+8.4107
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+8.2156
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+4.831E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.105E-4
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.3
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.184
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.8344
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+8.9426
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+8.7474
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.583E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.526E-4
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+10.030
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.7367
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.2374
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.0423
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2.632E-4
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.744E-4
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.7
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.7714
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.6468
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.7346
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.5394
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+6.580E-5
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.526E-4
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.95
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.7000
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.6849
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.9595
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.7644
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.828E-6
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.452E-5
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.99
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.6978
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.6950
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.9873
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.7922
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.312E-8
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.194E-6
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.0
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.6976
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.6976
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $-\infty$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $-\infty$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+So, this numeric exploration of the post-merge mutual information reveals
+ ...
+ something that perhaps should have been obvious, in retrospect.
+ Sigh.
+\end_layout
+
+\begin_layout Standard
+In retrospect, it should be clear that the union merge serves only to make
+ word-sense disambiguation cloudier and mushier, by placing unrelated disjuncts
+ into the same class/cluster.
+ This seemed somewhat harmless at some conceptual level, by employing the
+ argumnet that the observed disjuncts are rather noisy, and that perhaps
+ there are commonalities that simply were not observed, due to insufficient
+ sampling.
+ This may still be true, but, viewed from the MI angle, it is clear that
+ anything beyond a pure overlap merge is harmful to the entropy maximization.
+\end_layout
+
+\begin_layout Subsection*
+Deriving the Entropy Extrema
+\end_layout
+
+\begin_layout Standard
+The goal of this section is to find the extrema of the relative entropy
+ as given in eqn 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:relative entropy"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ This requires a lot of algebraic calculation.
+ The calculations below were undertaken before the numeric exploration immediate
+ly above.
+ The numerics show that this effort was ...
+ pointless.
+ The entropy is maximized by doing the overlap merge, setting 
+\begin_inset Formula $f=0$
+\end_inset
+
+; it's it, that's that.
+ The below is simply not necessary.
+ It's kept below for, uhh, posterity.
+ Otherwise, its useless and can be skipped over.
+\end_layout
+
+\begin_layout Subsubsection*
+Merge parameterization
+\end_layout
+
+\begin_layout Standard
+It's worth considering the most general merge that maintains detailed balance,
+ and symmetry between the two merged words.
+ This is done by defining a merge vector - a merge parameter for each disjunct,
+ so that one gets a vector 
+\begin_inset Formula $0\le f\left(d\right)\le1$
+\end_inset
+
+.
+ The merged class is then
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+N\left(g,d\right)=\begin{cases}
+f\left(d\right)\left[N\left(a,d\right)+N\left(b,d\right)\right] & d\in D\left(a\right)\cap D\left(b\right)\\
+f\left(d\right)N\left(a,d\right) & d\in D\left(a\right)\backslash D\left(b\right)\\
+f\left(d\right)N\left(b,d\right) & d\in D\left(b\right)\backslash D\left(a\right)
+\end{cases}
+\]
+
+\end_inset
+
+The above tries to distinguish the overlapping regions.
+ But it is overly complicted, since on the non-overlapping regions, the
+ counts vanish.
+ That is, 
+\begin_inset Formula $N\left(b,d\right)=0$
+\end_inset
+
+ when 
+\begin_inset Formula $d\in D\left(a\right)\backslash D\left(b\right)$
+\end_inset
+
+.
+ Thus, its enough to write 
+\begin_inset Formula 
+\[
+N\left(g,d\right)=f\left(d\right)\left[N\left(a,d\right)+N\left(b,d\right)\right]
+\]
+
+\end_inset
+
+To maintain detailed balance as before, one must have
+\begin_inset Formula 
+\[
+N\left(a^{\prime},d\right)=\left(1-f\left(d\right)\right)N\left(a,d\right)
+\]
+
+\end_inset
+
+Note that the number of disjuncts is huge: in practice, a vocabulary of
+ a few thousands words might have hundreds of thousands of disjuncts.
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+The `run-2` dataset used in the example above had 6029 distinct words and
+ 98102 distinct disjuncts.
+ This was a 
+\begin_inset Quotes eld
+\end_inset
+
+trimmed
+\begin_inset Quotes erd
+\end_inset
+
+ dataset, 40-8-5: all words with less than 40 observations were discarded.
+ All disjuncts with less than 8 observations were discarded, and all (word,disju
+nct) pairs with less than 5 observations were discarded.
+ Trimming tends to filter out a lot of the noise in the dataset, without
+ much compromising the data integrity.
+ That is, assuming one can accurately guess where the noise floor is; this
+ remains an open topic.
+\end_layout
+
+\end_inset
+
+ The vector 
+\begin_inset Formula $f\left(d\right)$
+\end_inset
+
+ is a large vector.
+\end_layout
+
+\begin_layout Standard
+In what follows, this full vector will be retreated from, going back to
+ the original vision of a projection merge.
+ There are two reasons for this:
+\end_layout
+
+\begin_layout Itemize
+The expressions get hopelessly non-linear and intractable,
+\end_layout
+
+\begin_layout Itemize
+It is hard to imagine what sort of additional information might arrive,
+ that would distinguish one disjunct from another.
+ Either a disjunct is associated with 
+\begin_inset Formula $a$
+\end_inset
+
+ or with 
+\begin_inset Formula $b$
+\end_inset
+
+ or with both; there really aren't any other possibilities.
+\end_layout
+
+\begin_layout Standard
+However, until that point, a vector of independent 
+\begin_inset Formula $f$
+\end_inset
+
+'s will be assumed.
+\end_layout
+
+\begin_layout Subsubsection*
+Variational problem
+\end_layout
+
+\begin_layout Standard
+A change of notation is in order.
+ Parenthesis have been useful to emphasize what depends on what.
+ Parenthesis are also convenient for plain-ASCII source code documentation.
+ However, for the following, subscript notation will improve readability.
+ Let
+\begin_inset Formula 
+\begin{align*}
+f_{d} & \equiv f\left(d\right)\\
+N_{wd} & \equiv N\left(w,d\right)\\
+M_{uw} & \equiv MI\left(u,w\right)
+\end{align*}
+
+\end_inset
+
+The variational problem is then to obtain 
+\begin_inset Formula 
+\[
+\frac{\partial S}{\partial f_{d}}
+\]
+
+\end_inset
+
+I see no easy way out, other than to brute-force this.
+ First, note that
+\begin_inset Formula 
+\begin{align*}
+\frac{\partial}{\partial f_{d}}\sum_{u,w=a,b}p\left(u,w\right)MI\left(u,w\right) & =\frac{\partial}{\partial f_{d}}\left[p\left(a,a\right)MI\left(a,a\right)+2p\left(a,b\right)MI\left(a,b\right)+p\left(b,b\right)MI\left(b,b\right)\right]\\
+ & =0
+\end{align*}
+
+\end_inset
+
+since none of these have 
+\begin_inset Formula $f\left(d\right)$
+\end_inset
+
+ appearning in the expressions.
+ Lets blast away.
+\begin_inset Formula 
+\[
+\frac{\partial S}{\partial f_{d}}=\sum_{u,w=g,a^{\prime},b^{\prime}}M_{uw}\frac{\partial p_{uw}}{\partial f_{d}}+p_{uw}\frac{\partial M_{uw}}{\partial f_{d}}
+\]
+
+\end_inset
+
+So
+\begin_inset Formula 
+\begin{align*}
+\frac{\partial p_{gg}}{\partial f_{d}}= & \frac{1}{i_{**}}\frac{\partial i_{gg}}{\partial f_{d}}\\
+= & \frac{1}{i_{**}}\frac{\partial}{\partial f_{d}}\sum_{d}N_{gd}N_{gd}\\
+= & \frac{2}{i_{**}}f_{d}\left(N_{ad}+N_{bd}\right)^{2}
+\end{align*}
+
+\end_inset
+
+and
+\begin_inset Formula 
+\begin{align*}
+\frac{\partial p_{ga^{\prime}}}{\partial f_{d}}= & \frac{1}{i_{**}}\frac{\partial}{\partial f_{d}}N_{gd}N_{a^{\prime}d}\\
+= & \frac{1}{i_{**}}\left(N_{ad}+N_{bd}\right)N_{ad}\frac{\partial}{\partial f_{d}}f_{d}\left(1-f_{d}\right)\\
+= & \frac{1}{i_{**}}\left(N_{ad}+N_{bd}\right)N_{ad}\left(1-2f_{d}\right)
+\end{align*}
+
+\end_inset
+
+and
+\begin_inset Formula 
+\begin{align*}
+\frac{\partial p_{a^{\prime}a^{\prime}}}{\partial f_{d}}= & \frac{1}{i_{**}}\frac{\partial}{\partial f_{d}}N_{a^{\prime}d}N_{a^{\prime}d}\\
+= & \frac{N_{ad}^{2}}{i_{**}}\frac{\partial}{\partial f_{d}}\left(1-f_{d}\right)^{2}\\
+= & -2\frac{N_{ad}^{2}}{i_{**}}\left(1-f_{d}\right)
+\end{align*}
+
+\end_inset
+
+and
+\begin_inset Formula 
+\begin{align*}
+\frac{\partial M_{uw}}{\partial f_{d}}= & \frac{\partial}{\partial f_{d}}\log_{2}\frac{p_{uw}}{p_{u}p_{w}}\\
+= & \frac{1}{\log2}\left[\frac{1}{p_{uw}}\frac{\partial p_{uw}}{\partial f_{d}}-\frac{1}{p_{u}}\frac{\partial p_{u}}{\partial f_{d}}-\frac{1}{p_{w}}\frac{\partial p_{w}}{\partial f_{d}}\right]
+\end{align*}
+
+\end_inset
+
+so
+\begin_inset Formula 
+\begin{align*}
+\frac{\partial p_{g}}{\partial f_{d}}= & \frac{1}{i_{**}}\frac{\partial i_{g*}}{\partial f_{d}}\\
+= & \frac{1}{i_{**}}\frac{\partial}{\partial f_{d}}\sum_{d}N_{gd}N_{*d}\\
+= & \frac{1}{i_{**}}\frac{\partial}{\partial f_{d}}N_{gd}N_{*d}\\
+= & \frac{1}{i_{**}}N_{*d}\left[N_{ad}+N_{bd}\right]
+\end{align*}
+
+\end_inset
+
+and 
+\begin_inset Formula 
+\begin{align*}
+\frac{\partial p_{a^{\prime}}}{\partial f_{d}}= & \frac{1}{i_{**}}\frac{\partial i_{a^{\prime}*}}{\partial f_{d}}\\
+= & -\frac{1}{i_{**}}N_{*d}N_{ad}
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Putting all this together is painfully tedious.
+ But it must be done.
+ (Is there some easier way I don't see yet?)
+\begin_inset Formula 
+\begin{align*}
+\sum_{u,w=g,a^{\prime},b^{\prime}}p_{uw}\frac{\partial M_{uw}}{\partial f_{d}}= & p_{gg}\frac{\partial M_{gg}}{\partial f_{d}}+p_{a^{\prime}a^{\prime}}\frac{\partial M_{a^{\prime}a^{\prime}}}{\partial f_{d}}+p_{b^{\prime}b^{\prime}}\frac{\partial M_{b^{\prime}b^{\prime}}}{\partial f_{d}}\\
+ & \quad+2p_{ga^{\prime}}\frac{\partial M_{ga^{\prime}}}{\partial f_{d}}+2p_{gb^{\prime}}\frac{\partial M_{gb^{\prime}}}{\partial f_{d}}\\
+= & \frac{1}{\log2}\times\\
+ & \frac{2}{i_{**}}f_{d}\left(N_{ad}+N_{bd}\right)^{2}-2\frac{p_{gg}}{p_{g}}\cdot\frac{1}{i_{**}}N_{*d}\left(N_{ad}+N_{bd}\right)\\
+ & -2\frac{N_{ad}^{2}}{i_{**}}\left(1-f_{d}\right)-2\frac{p_{a^{\prime}a^{\prime}}}{p_{a^{\prime}}}\cdot\left(-\frac{1}{i_{**}}N_{*d}N_{ad}\right)\\
+ & -2\frac{N_{bd}^{2}}{i_{**}}\left(1-f_{d}\right)+2\frac{p_{b^{\prime}b^{\prime}}}{p_{b^{\prime}}}\cdot\left(\frac{1}{i_{**}}N_{*d}N_{bd}\right)\\
+ & +2\frac{1}{i_{**}}\left(N_{ad}+N_{bd}\right)N_{ad}\left(1-2f_{d}\right)+2\frac{p_{ga^{\prime}}}{p_{a^{\prime}}}\cdot\frac{1}{i_{**}}N_{*d}N_{ad}+2\frac{p_{ga^{\prime}}}{p_{b^{\prime}}}\cdot\frac{1}{i_{**}}N_{*d}N_{bd}\\
+ & +2\frac{1}{i_{**}}\left(N_{ad}+N_{bd}\right)N_{bd}\left(1-2f_{d}\right)+2\frac{p_{gb^{\prime}}}{p_{a^{\prime}}}\cdot\frac{1}{i_{**}}N_{*d}N_{ad}+2\frac{p_{gb^{\prime}}}{p_{b^{\prime}}}\cdot\frac{1}{i_{**}}N_{*d}N_{bd}
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Lets hope there are no mistakes.
+ Gathering terms, 
+\begin_inset Formula 
+\begin{align*}
+\frac{i_{**}}{2}\log2\sum_{u,w=g,a^{\prime},b^{\prime}}p_{uw}\frac{\partial M_{uw}}{\partial f_{d}}= & f_{d}\left[\left(N_{ad}+N_{bd}\right)^{2}+N_{ad}^{2}+N_{bd}^{2}-2\left(N_{ad}+N_{bd}\right)^{2}\right]\\
+ & -\frac{p_{gg}}{p_{g}}N_{*d}\left(N_{ad}+N_{bd}\right)+\frac{p_{a^{\prime}a^{\prime}}}{p_{a^{\prime}}}N_{*d}N_{ad}+\frac{p_{b^{\prime}b^{\prime}}}{p_{b^{\prime}}}N_{*d}N_{bd}\\
+ & -N_{ad}^{2}-N_{bd}^{2}\\
+ & +\left(N_{ad}+N_{bd}\right)^{2}\\
+ & +\frac{p_{ga^{\prime}}}{p_{a^{\prime}}}N_{*d}N_{ad}+\frac{p_{ga^{\prime}}}{p_{b^{\prime}}}N_{*d}N_{bd}\\
+ & +\frac{p_{gb^{\prime}}}{p_{a^{\prime}}}N_{*d}N_{ad}+\frac{p_{gb^{\prime}}}{p_{b^{\prime}}}N_{*d}N_{bd}\\
+= & 2\left(1-f_{d}\right)N_{ad}N_{bd}\\
+ & \quad+N_{*d}N_{ad}\left[-\frac{p_{gg}}{p_{g}}+\frac{p_{a^{\prime}a^{\prime}}+p_{ga^{\prime}}+p_{gb^{\prime}}}{p_{a^{\prime}}}\right]\\
+ & \quad+N_{*d}N_{bd}\left[-\frac{p_{gg}}{p_{g}}+\frac{p_{b^{\prime}b^{\prime}}+p_{ga^{\prime}}+p_{gb^{\prime}}}{p_{b^{\prime}}}\right]
+\end{align*}
+
+\end_inset
+
+Huf.
+ This appears to be quadratic rational in 
+\begin_inset Formula $f$
+\end_inset
+
+ because
+\begin_inset Formula 
+\begin{align*}
+p_{gg}= & \frac{1}{i_{**}}\sum_{d}N_{gd}N_{gd}\\
+= & \frac{1}{i_{**}}\sum_{d}f_{d}^{2}\left(N_{ad}+N_{bd}\right)^{2}
+\end{align*}
+
+\end_inset
+
+while
+\begin_inset Formula 
+\begin{align*}
+p_{g}= & \frac{1}{i_{**}}\sum_{d}N_{gd}N_{*d}\\
+= & \frac{1}{i_{**}}\sum_{d}f_{d}\left(N_{ad}+N_{bd}\right)N_{*d}
+\end{align*}
+
+\end_inset
+
+So those fractions are nasty.
+ There seem to be two choices in front of us.
+ These are
+\end_layout
+
+\begin_layout Itemize
+Set 
+\begin_inset Formula $f_{d}=1$
+\end_inset
+
+ for 
+\begin_inset Formula $d\in D\left(a\right)\cap D\left(b\right)$
+\end_inset
+
+ and 
+\begin_inset Formula $f_{d}=f$
+\end_inset
+
+ otherwise.
+ This is the projection merge.
+\end_layout
+
+\begin_layout Itemize
+Set 
+\begin_inset Formula $f_{d}=f$
+\end_inset
+
+ for all 
+\begin_inset Formula $d$
+\end_inset
+
+.
+ This seems to be pointless; it smears together multiple word senses.
+\end_layout
+
+\begin_layout Standard
+Abandon the second option.
+ To disentangle the location of 
+\begin_inset Formula $f$
+\end_inset
+
+ in the various quantities, some addtional notation is needed.
+\end_layout
+
+\begin_layout Section*
+The End
+\end_layout
+
+\begin_layout Standard
+This is the end of the diary.
+\end_layout
+
 \end_body
 \end_document
