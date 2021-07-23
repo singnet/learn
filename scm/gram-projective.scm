@@ -171,7 +171,7 @@
 ; Parameter choices
 ; -----------------
 ; Gut-sense intuition suggests that `merge-mifuzz` with a min acceptable
-; MI of about 3 works best. The union fraction should be set to zero.
+; MI of about 5 works best. The union fraction should be set to zero.
 ;
 ; Earlier work is summarized in `grammar-report/grammar-report.pdf`.
 ; Pretty much everything there used a union-merge fraction of 0.3,
@@ -258,7 +258,7 @@
 
 ; ---------------------------------------------------------------------
 
-(define (start-cluster LLOBJ CLS WA WB FRAC-FN NOISE MRG-CON)
+(define-public (start-cluster LLOBJ CLS WA WB FRAC-FN NOISE MRG-CON)
 "
   start-cluster LLOBJ CLS WA WB FRAC-FN NOISE MRG-CON --
      Start a new cluster by merging rows WA and WB of LLOBJ into a
@@ -443,7 +443,7 @@
 
 ; ---------------------------------------------------------------------
 
-(define (merge-into-cluster LLOBJ CLS WA FRAC-FN NOISE MRG-CON)
+(define-public (merge-into-cluster LLOBJ CLS WA FRAC-FN NOISE MRG-CON)
 "
   merge-into-cluster LLOBJ CLS WA FRAC-FN NOISE MRG-CON --
      Merge WA into cluster CLS. These are two rows in LLOBJ,
