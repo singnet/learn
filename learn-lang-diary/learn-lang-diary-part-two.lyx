@@ -7959,9 +7959,45 @@ tranche-1
  Word-pair counting went well (except for the handling error that truncated
  the corpus), as did disjunct formation.
  The MM^T stats were computed for the disjuncts, including shapes.
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+It contains 6029 words, 98102 disjuncts, a total of 171922 word-disjunct
+ pairs, has a sparsity of 11.748, a total of 4006152 observations for an
+ average of 23.302 per pair.
+\end_layout
+
+\end_inset
+
  Everything is fine (nominal) until merge.
  Projective merge fails dramatically – unrelated words are being merged.
  Why?
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+One possible answer to this question is that there is a procedural error
+ at play.
+ It is this: the MM^T marginals were computed for the full dataset, and
+ then the dataset was trimmed to discard low-count rows and columns.
+ However, the full marginals were still used in computing the MI.
+ This throws everything off, because ..
+ rows and columns are missing.
+ The correct process would have been to recompute the MM^T marginals 
+\emph on
+after
+\emph default
+ trimming! The MM^T marginals depend on the support marginals as well.
+ Which were also cached.
+ This has lead to some confusion in the below.
+ I think the results are unchanged, but I'm no longer confident.
+ 27 July 2021
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -12140,10 +12176,10 @@ trimmed
  dataset, 40-8-5: all words with less than 40 observations were discarded.
  All disjuncts with less than 8 observations were discarded, and all (word,disju
 nct) pairs with less than 5 observations were discarded.
- Trimming tends to filter out a lot of the noise in the dataset, without
- much compromising the data integrity.
- That is, assuming one can accurately guess where the noise floor is; this
- remains an open topic.
+ I've been assuming that trimming filters out a lot of the noise in the
+ dataset, without much compromising the data integrity.
+ However, this has not been shown experimentally, it just seems like it
+ should be so.
 \end_layout
 
 \end_inset
@@ -14093,7 +14129,7 @@ her
 \end_inset
 
 , although this is no longer ranked.
- A third column shows the cset+shape-MI to 
+ The third column shows the cset+shape-MI to 
 \begin_inset Quotes eld
 \end_inset
 
@@ -14102,6 +14138,13 @@ him
 \end_inset
 
 .
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -14957,6 +15000,10 @@ say
 \end_inset
 
 
+\begin_inset VSpace defskip
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -14994,24 +15041,221 @@ The third column is peculiar.
 lot
 \emph default
  lower.
- Recall, we're measuring MI in bits, so a difference of MI of 5 means a
- difference of 
-\begin_inset Formula $2^{5}=32$
+ I'm surprised by this; I was expecting the MI to be improved.
+ There's only a hint of a silver lining: the MI to verbs, nouns and preps
+ seems just a little lower, than it is to pronouns.
+ But just a smidgen.
+ It's not much.
+ Overall, we conclude that the MI values fail to distinguish between pronouns,
+ verbs, nouns and preps.
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+So this is intermixed with a lot of confusion.
+ The MM^T marginals (
+\emph on
+i.e.
+
+\emph default
+ the values of 
+\begin_inset Formula $\sum_{d}N(w,d)N(*,d)$
 \end_inset
 
- in absolute magnitude.
- It's pretty big.
- The only 
+) were originally from the large dataset, kept as a cache.
+ Then the dataset was trimmed, without recomputing marginals.
+ Then I caught the error.
+ Then I discovered that the 
+\begin_inset Formula $N(*,d)$
+\end_inset
+
+ values were cached, too.
+ So, several different mistakes – in some cases, the sum ran over the set
+ of disjuncts 
+\begin_inset Formula $d$
+\end_inset
+
+ for the full set, and for some it did not.
+ The dot-product 
+\begin_inset Formula $\sum_{d}N(w,d)N(u,d)$
+\end_inset
+
+ used in computing the MI always runs only over the disjuncts 
+\begin_inset Formula $d$
+\end_inset
+
+ in the trimmed dataset.
+ This is obviously not compatible with the cached marginals.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+July 2021 - Vector Sizes and MI
+\end_layout
+
+\begin_layout Standard
+Above, we see that, for a given dataset, the MI values (seem to) fail to
+ distinguish between pronouns, verbs, nouns and prepositions.
+ This section explores why that is the case.
+ The results so far show that the MI between a large word-vector and a small
+ word-vector can be quite high, if most of the small (
 \begin_inset Quotes eld
 \end_inset
 
-good thing
+short
 \begin_inset Quotes erd
 \end_inset
 
- here is that the MI to the other pronouns is consistently higher than the
- MI to the verbs, nouns, preps.
- Not a lot, but enough to be noticable.
+) vector lies in the same direction as the large (
+\begin_inset Quotes eld
+\end_inset
+
+long
+\begin_inset Quotes erd
+\end_inset
+
+) vector.
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+The word 
+\begin_inset Quotes eld
+\end_inset
+
+length
+\begin_inset Quotes erd
+\end_inset
+
+ is troublesome.
+ In this paragraph, we are talking about 
+\begin_inset Quotes eld
+\end_inset
+
+the size of the suppport
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\emph on
+i.e.
+
+\emph default
+ the number of non-zero entries in the vector.
+ This should not be confused with the root-mean-square length of the vector,
+ 
+\emph on
+i.e.
+
+\emph default
+ its Euclidean lenghth.
+ This confusion easily extends to 
+\begin_inset Quotes eld
+\end_inset
+
+short
+\begin_inset Quotes erd
+\end_inset
+
+ vs.
+ 
+\begin_inset Quotes eld
+\end_inset
+
+small
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+long
+\begin_inset Quotes erd
+\end_inset
+
+ vs.
+ 
+\begin_inset Quotes eld
+\end_inset
+
+large
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Hopefully, things will be clear from context.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This is...well, its good and bad, depending on what one wants.
+ If the goal is to take a short fragment and identify where it belongs,
+ then this is unalloyed good.
+ However, if the dataset is small, and almost all words have short vectors,
+ then this is bad.
+ The natural Zipfian distribution indicates that only a small fraction (ballpark
+ of 10%) have long vectors.
+ Thus, it is not surprising that most short vectors will mostly align with
+ one of these long vectors.
+\end_layout
+
+\begin_layout Standard
+There are several conclusions one can make:
+\end_layout
+
+\begin_layout Itemize
+Don't use small datasets with lots of short vectors.
+ This is hard, because (1) the Zipfian distribution means most vectors will
+ be short, no matter the size of the dataset.
+ (2) it is CPU intensive to use large datasets.
+\end_layout
+
+\begin_layout Itemize
+Don't run merge algos on short vectors.
+ This is already done, more or less: the current merge algo considers merging
+ only vectors of similar counts (and thus, presumably of similar sizes.)
+ Stop merging long before reaching down into the short-vector regions of
+ the dataset.
+\end_layout
+
+\begin_layout Itemize
+Don't trim datasets.
+ The goal of trimming was to discard 
+\begin_inset Quotes eld
+\end_inset
+
+noise
+\begin_inset Quotes erd
+\end_inset
+
+: i.e.
+ infrequently-observed word-disjunct pairs, with the general argument that
+ such low-count pairs are likely to be garbage.
+ However, we have not shown that they actually are 
+\begin_inset Quotes eld
+\end_inset
+
+garbage
+\begin_inset Quotes erd
+\end_inset
+
+, and such low-count trimming might actually be discarding important information.
+ That is, trimming might be creatng short vectors that incorrectly align
+ with large vectros, when the untrimmed variants would have shown that they
+ are quite different.
+\end_layout
+
+\begin_layout Itemize
+Use a different measure of MI that emphasizes non-colinearity.
 \end_layout
 
 \begin_layout Subsection*
@@ -15019,7 +15263,7 @@ Terrible MI values
 \end_layout
 
 \begin_layout Standard
-However, there's a disaster just around the corner.
+Here's the disaster were looking at.
  The top-MI cset+shape words to 
 \begin_inset Quotes eld
 \end_inset
@@ -15029,6 +15273,28 @@ him
 \end_inset
 
  are these:
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+Use `(almi 
+\begin_inset Quotes eld
+\end_inset
+
+him
+\begin_inset Quotes erd
+\end_inset
+
+)` from the tools file.
+\end_layout
+
+\end_inset
+
+
+\begin_inset VSpace defskip
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -15303,6 +15569,10 @@ him
 \end_inset
 
 
+\begin_inset VSpace defskip
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -15333,6 +15603,10 @@ her
 \end_inset
 
  is no better:
+\begin_inset VSpace defskip
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -15608,6 +15882,10 @@ her
 \end_inset
 
 
+\begin_inset VSpace defskip
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -15637,6 +15915,21 @@ Close-up inspection
 
 \begin_layout Standard
 So what is going on here? Lets look close up.
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+After the analysis in this section was performed, a proceedural issue was
+ detected.
+ It's not clear how this affects results.
+ The proceedural problem is that the MM^T marginals were computed first,
+ and then the dataset was trimmed.
+ For computing the MI, the MM^T marginals from the full dataset were used.
+ I'm thinking that they should have been recomputed after trimming.
+\end_layout
+
+\end_inset
+
  The word 
 \begin_inset Quotes eld
 \end_inset
@@ -15713,6 +16006,27 @@ sink
 ? Wow, it is ..
  bad.
  It has one cross-section, and zero sections:
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+It has zero sections because these were filtered out.
+ The filter removes all sections with a count of less than five.
+ It seems that the word 
+\begin_inset Quotes eld
+\end_inset
+
+sink
+\begin_inset Quotes erd
+\end_inset
+
+ only appeared in a small handful of sentences.
+ This makes it a rare word.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -15731,9 +16045,7 @@ status open
 \end_layout
 
 \begin_layout Standard
-I'm confused.
- How can it have zero sections??? Anyway, the total observation count is
- 9, which is small.
+The total observation count is 9, which is small.
  Just above the dataset cutoff.
  The self-MI is MI(sink, sink)=12.27.
  The cross section is 
@@ -15832,6 +16144,1235 @@ and the cosine would be
 which is a far more reasonable value.
  Why is the MI misleading us? What went wrong here? What can we do to fix
  it?
+\end_layout
+
+\begin_layout Subsection*
+What's the problem?
+\end_layout
+
+\begin_layout Standard
+Well, the primary problem with the above is that ..
+ the MI is correct, but unwanted.
+ We have a word with a tiny sample - one disjunct, and that one disjunct
+ overlaps nicely with anything and everything else that has that disjunct
+ in it.
+\end_layout
+
+\begin_layout Standard
+To wit: the cross-section came from the phrase 
+\begin_inset Quotes eld
+\end_inset
+
+seemed to xxx
+\begin_inset Quotes erd
+\end_inset
+
+.
+ It's plausible to assume that 
+\begin_inset Formula $MI(sink,xxx)$
+\end_inset
+
+ will be high for all other words xxx appearing in that phrase.
+ Indeed this is the case:
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "45col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="11" columns="3">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MI
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+support
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+sink
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+12.37
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+fill
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+12.15
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+grow
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11.51
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+consider
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.345
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+5
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+be
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+8.302
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1040
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+have
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+6.931
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+863
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+feel
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+6.602
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+33
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+take
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+6.391
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+122
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+make
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+5.689
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+135
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+come
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+4.966
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+235
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "45col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="11" columns="3">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MI
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+support
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+think
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+4.801
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+221
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+say
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+4.786
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+257
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+him
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+4.452
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+834
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+me
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+4.206
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+612
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+her
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.909
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+810
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+like
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.852
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+171
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Pierre
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.611
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+31
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+go
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.555
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+231
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+see
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2.984
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+329
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+them
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.617
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+372
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The column labelled 
+\begin_inset Quotes eld
+\end_inset
+
+support
+\begin_inset Quotes erd
+\end_inset
+
+ is the length of the vector for that word (
+\emph on
+i.e.
+
+\emph default
+ it is the number of disjuncts observed for that word.) It appears to show
+ that the length of the vector has little impact on the MI.
+ That is, it is the word 
+\begin_inset Quotes eld
+\end_inset
+
+sink
+\begin_inset Quotes erd
+\end_inset
+
+ and it's single disjunct that is in the drivers seat: it can overlap some
+ very long vectors in such a way that a high MI results.
+\end_layout
+
+\begin_layout Standard
+What is meant by 
+\begin_inset Quotes eld
+\end_inset
+
+high MI
+\begin_inset Quotes erd
+\end_inset
+
+? (Computing the average MI is impossible, as the CPU demans to sum over
+ all pairs is simply too high.
+ We need to develope techniques for estimating this from the distribution.)
+\end_layout
+
+\begin_layout Standard
+The MI is high, because this word 
+\begin_inset Quotes eld
+\end_inset
+
+sink
+\begin_inset Quotes erd
+\end_inset
+
+ has nothing else it can match to.
+ That is, the vector for 
+\begin_inset Quotes eld
+\end_inset
+
+sink
+\begin_inset Quotes erd
+\end_inset
+
+ is so short, that it matches anything else that has that same vector element
+ in it.
+ So, in that sense, the result is correct; it is just, perhaps, not quite
+ what we wanted.
+\end_layout
+
+\begin_layout Standard
+What do we want, then?
+\end_layout
+
+\begin_layout Subsection*
+Double check
+\end_layout
+
+\begin_layout Standard
+The above focuses on the word 
+\begin_inset Quotes eld
+\end_inset
+
+sink
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Perhaps its exceptional.
+ How about the other problematic words: 
+\begin_inset Quotes eld
+\end_inset
+
+fill Instead grow 1880 scoundrel accepted serve appealed springing
+\begin_inset Quotes erd
+\end_inset
+
+? Let's take a quick peak.
+\end_layout
+
+\begin_layout Standard
+The word 
+\begin_inset Quotes eld
+\end_inset
+
+fill
+\begin_inset Quotes erd
+\end_inset
+
+ shows up in two cross-sections: 
+\begin_inset Quotes eld
+\end_inset
+
+to: seemed- & fill+
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+up: fill- & the+
+\begin_inset Quotes erd
+\end_inset
+
+, both with low counts (9 and 10) and no Sections.
+\end_layout
+
+\begin_layout Standard
+The word 
+\begin_inset Quotes eld
+\end_inset
+
+Instead
+\begin_inset Quotes erd
+\end_inset
+
+ appears in one Section: 
+\begin_inset Quotes eld
+\end_inset
+
+Instead: WALL- & ,+ & he+
+\begin_inset Quotes erd
+\end_inset
+
+ and one cross-section: 
+\begin_inset Quotes eld
+\end_inset
+
+,: Instead- & he+
+\begin_inset Quotes erd
+\end_inset
+
+ with counts of 6 and 14.
+\end_layout
+
+\begin_layout Standard
+The word 
+\begin_inset Quotes eld
+\end_inset
+
+grow
+\begin_inset Quotes erd
+\end_inset
+
+ appears in three cross sections: 
+\begin_inset Quotes eld
+\end_inset
+
+to: seemed- & grow+
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+up: grow- & .+
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+to: began- & grow+
+\begin_inset Quotes erd
+\end_inset
+
+ with counts of 18, 6 and 25.
+ There are no Sections.
+\end_layout
+
+\begin_layout Standard
+The word 
+\begin_inset Quotes eld
+\end_inset
+
+1880
+\begin_inset Quotes erd
+\end_inset
+
+ appears in one Section: 
+\begin_inset Quotes eld
+\end_inset
+
+1880: in- & ,+
+\begin_inset Quotes erd
+\end_inset
+
+ with a count of 10.
+\end_layout
+
+\begin_layout Standard
+The word 
+\begin_inset Quotes eld
+\end_inset
+
+scoundrel
+\begin_inset Quotes erd
+\end_inset
+
+ appears in two cross-sections: 
+\begin_inset Quotes eld
+\end_inset
+
+a: am- & scoundrel+
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+,: scoundrel- & but+
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+The word 
+\begin_inset Quotes eld
+\end_inset
+
+accepted
+\begin_inset Quotes erd
+\end_inset
+
+ appears in a number of Sections and cross-sections.
+ Most of these appear to be the result of parsing a sentence in the Project
+ Gutenberg boilerplate, something about accepting donations.
+\end_layout
+
+\begin_layout Standard
+The word 
+\begin_inset Quotes eld
+\end_inset
+
+serve
+\begin_inset Quotes erd
+\end_inset
+
+ appears in one cross-section: 
+\begin_inset Quotes eld
+\end_inset
+
+as: serve- & a+
+\begin_inset Quotes erd
+\end_inset
+
+ with a count of 32.
+\end_layout
+
+\begin_layout Standard
+We can safely conclude that 
+\begin_inset Quotes eld
+\end_inset
+
+grow
+\begin_inset Quotes erd
+\end_inset
+
+ is prototypical of the other problematic words.
+ All of the problematic words are those with very short vectors.
+\end_layout
+
+\begin_layout Standard
+As noted before, the lack of Sections is due to this being a filtered dataset:
+ Sections with a count of 5 or less have been removed.
+ Effectively, all of the above words are rare, and occur only in a handful
+ of sentences in the text.
+\end_layout
+
+\begin_layout Standard
+This reinforces an apparent paradox: the corpus seems to be quite large:
+ maybe a quarter of a million sentences! (The exact count is not known,
+ this is a damaged dataset.) Even after filtering, there seem to be a lot
+ of words (just over six thousand!) Yet, there's an average of 23 observations
+ per word, which is not all that many.
+ This should be compared to mother-baby talk in human infants: by the age
+ of two, a baby will have heard a small vocabulary of hundreds of words,
+ but with a sample of a hundred-thousand or a million for each of these
+ words.
+\end_layout
+
+\begin_layout Standard
+The size of the datasets used here is deceiving.
+ Also: one can presume that almost all sentences in the Project Gutenberg
+ corpus are distinct, with very few repeated sentences.
+ By contrast, in human mother-baby talk, there is a vast amount of repetition.
+ Now, most of this repetition is for auditory training, not syntactic training,
+ but still, the repetetiveness must surely be quite reinforcing.
+\end_layout
+
+\begin_layout Subsection*
+Other kinds of mutual information
+\end_layout
+
+\begin_layout Standard
+The above suggests that perhaps other measures should be examined.
+ Intuitively, one might want a measure that treats vectors of similar size
+ as being more similar, than those of dis-similar sizes.
+\end_layout
+
+\begin_layout Standard
+Since we're discarding cosine distance for 
+\emph on
+a priori
+\emph default
+ reasons (probabilities do not live in Euclidean spaces), then only other
+ MI-like constructions are allowed.
+ One obvious one is a Banach-like 
+\begin_inset Formula $MI_{s}$
+\end_inset
+
+ measure:
+\begin_inset Formula 
+\begin{align*}
+MI_{s,t}\left(w,u\right) & =\log_{2}\frac{\left(\sum_{d}N^{s}(w,d)N^{s}(u,d)\right)\left(\sum_{d}N^{t}(*,d)N^{t}(*,d)\right)}{\left(\sum_{d}N^{s}(w,d)N^{t}(*,d)\right)\left(\sum_{d}N^{s}(u,d)N^{t}(*,d)\right)}\\
+ & =\log_{2}\frac{\left(\sum_{d}p^{s}(w,d)p^{s}(u,d)\right)\left(\sum_{d}p^{t}(*,d)p^{t}(*,d)\right)}{\left(\sum_{d}p^{s}(w,d)p^{t}(*,d)\right)\left(\sum_{d}p^{s}(u,d)p^{t}(*,d)\right)}
+\end{align*}
+
+\end_inset
+
+where 
+\begin_inset Formula $p\left(w,d\right)\equiv N\left(w,d\right)/N\left(*,*\right)$
+\end_inset
+
+ or where 
+\begin_inset Formula $p\left(w,d\right)\equiv N\left(w,d\right)/N\left(w,*\right)$
+\end_inset
+
+ as desired; the normalization cancels out.
+ The two exponents 
+\begin_inset Formula $s$
+\end_inset
+
+ and 
+\begin_inset Formula $t$
+\end_inset
+
+ are independent of one-another.
+ it's not entirely clear if they should be forced to be equal, 
+\emph on
+i.e.
+
+\emph default
+ to set 
+\begin_inset Formula $s=t$
+\end_inset
+
+ or if it is better to set 
+\begin_inset Formula $t=1$
+\end_inset
+
+ and allowing 
+\begin_inset Formula $s$
+\end_inset
+
+ to remain free.
+ Even setting 
+\begin_inset Formula $t=0$
+\end_inset
+
+ is plausible.
+ Setting 
+\begin_inset Formula $s=t=1$
+\end_inset
+
+ gives the earlier MI.
+ Setting 
+\begin_inset Formula $s=t=0$
+\end_inset
+
+ gives a Hamming-distance-like MI that only considers those disjuncts that
+ have a non-zero count.
+ Setting 
+\begin_inset Formula $s=t=2$
+\end_inset
+
+ results in a weighting where the high-count disjuncts dominate, and thus
+ naturally suppresses 
+\begin_inset Quotes eld
+\end_inset
+
+noise
+\begin_inset Quotes erd
+\end_inset
+
+: the word-disjunct pairs with low observation counts.
+ This assumes that low-count word-disjunct pairs actually are 
+\begin_inset Quotes eld
+\end_inset
+
+noise
+\begin_inset Quotes erd
+\end_inset
+
+.
+ This has 
+\emph on
+not
+\emph default
+ been experimentally established.
+ In fact, one can go in the opposite direction: perhaps these carry some
+ kind of important signal.
+ In this case, a weighting of 
+\begin_inset Formula $s=t=1/2$
+\end_inset
+
+ may provide a good intermediate balance between 
+\begin_inset Formula $s=t=0$
+\end_inset
+
+ and 
+\begin_inset Formula $s=t=1$
+\end_inset
+
+.
+ There's a strange intellectual appeal to an exponent of 1/2, in that it
+ is 
+\begin_inset Quotes eld
+\end_inset
+
+quantum mechanical
+\begin_inset Quotes erd
+\end_inset
+
+: it is the square root of the probability.
+ That this is meaningful in a statistical realm is demonstrated by the Fisher
+ information metric, which reduces to the flat-space Eucliden metric when
+ working with the square-root.
+ This is 
+\begin_inset Quotes eld
+\end_inset
+
+interesting
+\begin_inset Quotes erd
+\end_inset
+
+, the meaning of which is not yet entirely clear to this author.
+ (Asking about complex values of 
+\begin_inset Formula $s$
+\end_inset
+
+ seems like a step too far, at this time.)
+\end_layout
+
+\begin_layout Standard
+How might this work out for 
+\begin_inset Quotes eld
+\end_inset
+
+sink
+\begin_inset Quotes erd
+\end_inset
+
+?
 \end_layout
 
 \begin_layout Section*
@@ -17682,7 +19223,7 @@ Highest RAM usage
 \begin_inset Text
 
 \begin_layout Plain Layout
-
+(91.2)
 \end_layout
 
 \end_inset
@@ -17878,7 +19419,7 @@ RocksDB file size
 
 \begin_layout Standard
 Wall-clock time is time to process that one particular tranche.
- Cumulative wll-clock is that, plus the sum of the earlier ones.
+ Cumulative wall-clock is that, plus the sum of the earlier ones.
 \end_layout
 
 \begin_layout Section*
