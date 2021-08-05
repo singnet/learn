@@ -4781,6 +4781,218 @@ total-support-right
 norm-key (add-pair-stars  LLOBJ) 'left-stars
 (LLOBJ 'right-wildcard ITEM)
 
+-----------------
+(define cset-obj (make-pseudo-cset-api))
+(define cstars (add-pair-stars cset-obj))
+(define csc (add-covering-sections cset-obj))
+(define pwrds (cstars 'left-basis))
+(define cwords (csc 'left-basis))
+
+(length pwrds) ; 434
+(length cwords) ; 1294
+
+(define ps (make-aset-predicate  pwrds))
+(define wtf (atoms-subtract cwords pwrds))
+(take wtf 10)
+(WordNode "evening")
+(Connector (WordNode "evening") (ConnectorDir "+"))
+evening: <the, in- & *+>
+the: in- & evening+ 
+ (ConnectorSeq
+  (Connector (WordNode "in") (ConnectorDir "-"))
+  (Connector (WordNode "evening") (ConnectorDir "+")))
+
+
+(define inte
+(Section (ctv 1 0 456)
+  (WordNode "the")
+  (ConnectorSeq (Connector (WordNode "in") (ConnectorDir "-"))
+    (Connector (WordNode "evening") (ConnectorDir "+")))))
+
+(define fsa (add-subtotal-filter psa 640 128 80 #f))
+(define lfa (add-linkage-filter fsa))
+(define ae (lfa 'get-all-elts)) ; takes an hour...
+(length ae) ;   6035 
+(define in-ap? (make-aset-predicate ae))
+(in-ap? inte) ; #t  whoops!
+
+(define sfs (fsa 'left-basis)) 
+(length sfs) ; 4072
+
+(define in-sf? (make-aset-predicate sfs))
+(in-sf? (WordNode "evening"))   ; #t
+
+(fsa 'right-stars (WordNode "evening"))
+... is the empty set.
+
+(fsa '
+
+(define zfa (add-zero-filter fsa #f))
+(define zfs (zfa 'left-basis))
+
+Very slow, cause it requires right-stars .. for "any" yuck.
+
+(length zfs) ; 457  whoa ....
+
+supp-obj (add-support-compute
+'right-count is sum over right-stars i.e. N(w,*)
+
+-----------------
+Its broken again.
+(define cset-obj (make-pseudo-cset-api))
+(define cstars (add-pair-stars cset-obj))
+(define csc (add-covering-sections cset-obj))
+(define pwrds (cstars 'left-basis))
+(define cwords (csc 'left-basis))
+
+(length pwrds) ; 409
+(length cwords) ; 437
+
+(define ps (make-aset-predicate  pwrds))
+(define wtf (atoms-subtract cwords pwrds))
+(take wtf 10)
+(WordNode "your")
+
+[your: <and: you- & *+>]  --- and: you- & your+
+[your: <of: out- & *+>] --- of: out- & your+
+
+(Connector (WordNode "your") (ConnectorDir "+"))
+(ConnectorSeq
+  (Connector (WordNode "out") (ConnectorDir "-"))
+  (Connector (WordNode "your") (ConnectorDir "+")))
+
+(Section (ctv 1 0 135)
+  (WordNode "of")
+  (ConnectorSeq
+    (Connector
+      (WordNode "out")
+      (ConnectorDir "-"))
+    (Connector
+      (WordNode "your")
+      (ConnectorDir "+"))))
+
+(cstars 'right-stars (WordNode "your"))
+... empty set. How did this happen?
+
+(define zsc (add-zero-filter csc #f))
+(length (zsc 'left-basis)) ; 437 ... why isn't this working? oh right.
+
+; try again
+(define zob (add-zero-filter cstars #f))
+(define zsc (add-covering-sections zob))
+(length (zsc 'left-basis)) ; 437 .... wtf
+
+; try again
+(define lob (add-linkage-filter cstars))
+(define lsc (add-covering-sections lob))
+(length (lsc 'left-basis)) ; 437 .... wtf
+
+; try again
+(define lob (add-linkage-filter cstars))
+(length (lob 'left-basis)) ; 409 OK.
+(define zlb (add-zero-filter lob #f))
+(define czl (add-covering-sections zlb))
+(length (czl 'left-basis)) ; 437 .... wtf
+
+---
+(length (cstars 'right-basis)) ; 2496
+
+(length
+	(delete-dup-atoms
+		(map (lambda (SEC) (gdr SEC))
+			(cstars 'get-all-elts))))  ; 2496 .. again.
+
+(define conseqs
+	(delete-dup-atoms
+		(map (lambda (SEC) (gdr SEC))
+			(lob 'get-all-elts))))
+
+(length conseqs) ; 2405  so some removed.
+
+(define conwords
+	(delete-dup-atoms
+		(concatenate
+			(map (lambda (CONSEQ)
+				(map (lambda (CON) (gar CON))
+					(cog-outgoing-set CONSEQ)))
+				conseqs))))
+
+(length conwords) ; 357 oh huh. much smaller...
+
+---
+(length (psa 'right-stars (WordNode "your")))   ; 36956
+(define fsa (add-subtotal-filter psa 640 128 80 #f))
+(length (fsa 'right-stars (WordNode "your")))   ; 1
+ your: beg- & pardon+
+
+(define zfa (add-zero-filter fsa #f))
+(define zfs (zfa 'left-basis))
+(length zfs)  ; 457
+(zfa 'right-stars (WordNode "your"))
+(length (zfa 'right-stars (WordNode "your"))) ; same as before
+
+(define lfa (add-linkage-filter zfa))
+(lfa 'right-stars (WordNode "your")) 
+; Now its the empty set.  (takes long time)
+
+(length (lfa 'left-basis)) ; 457 ... ouch
+(length (lfa 'right-basis)) ; 2496
+
+(length
+	(delete-dup-atoms
+		(map (lambda (SEC) (gdr SEC))
+			(lfa 'get-all-elts)))) ; 2496 arghh
+
+=================================================
+r3-zfil-640-128-80-fresh.rdb
+Done storing 4006 pairs in 1 secs
+Total store time = 5275 secs
+
+r3-zfil-640-128-80-wtf.rdb
+
+guile -l cogserver.scm
+(load-atomspace)
+(cog-report-counts)
+
+(Connector . 666)
+(ConnectorSeq . 2496)
+(Section . 4006)
+(WordNode . 437)
+(define all-words (cog-get-atoms 'WordNode))
+(define all-sects (cog-get-atoms 'Section))
+(define all-seqs (cog-get-atoms 'ConnectorSeq))
+(define all-cons (cog-get-atoms 'Connector))
+
+(define pca (make-pseudo-cset-api))
+(define psa (add-pair-stars pca))
+(define btr (batch-transpose psa))
+(btr 'mmt-marginals)
+
+(cog-report-counts)
+(ListLink . 2906)
+
+(print-matrix-summary-report psa)
+Rows: 409 Columns: 2496
+Size: 4006 non-zero entries  Sparsity (-log_2): 7.9934  entropy=-3.191
+
+(report-plain)
+(cog-report-counts)
+(WordNode . 451)  <--- from the report.
+
+guile -l marginals-mst-shape.scm
+Rows: 437 Columns: 6961
+Size: 12340 Sparsity (-log_2): 7.9455 entropy=-1.338  .. this is correct.
+
+(cog-report-counts)
+(Connector . 668)
+(ShapeLink . 4465)
+(CrossSection . 8334)
+(EvaluationLink . 438)
+
+guile -l marginals-mst.scm
+... still OK.
+(load "/tmp/smack.scm")
+
 ====================================================
 link-class.scm ???
 ====================================================
