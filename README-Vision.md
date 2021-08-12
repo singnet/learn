@@ -42,7 +42,7 @@ nose: NWn & NEn & Sp;
 lips: Np;
 ```
 and so on, for cheeks, forehead, *etc*. This is how one might construct
-a grammar for 2D faces. 
+a grammar for 2D faces.
 
 Given a segmented 2D image, can we "parse" it, *i.e.* apply the above
 grammar, and thus identify where the eyes, nose, lips are? Or perhaps get
@@ -90,3 +90,114 @@ busted up into disjuncts.  Collecting statistics on the disjuncts, one
 then readily obtains vectors, and so a grammar. Le Voila!  The same Link
 Grammar as used for natural language can also be applied to visual
 part-whole image segmentation!
+
+Development Plan
+================
+This section describes the initial steps that can be taken, to validate
+the above ideas.
+
+Corpora
+-------
+Collect a suitable corpus of images. For proof-of-concept, the images
+should be rather simple, and relatively uniform, so that the
+commonalities can be easily identified. Ideas include:
+
+* Different views of a flag of one country. Perhaps a tricolor (German,
+  French flags) is a good place to start. More challenging might be the
+  American flag, or the Union Jack, or others.  The goal here would be
+  to learn the order of the colors, to learn the ratio of dimensions
+  (width to height, ratio of dimensions of other feature sizes) and to
+  distinguish the flag from the background.  Bonus points: distinguish a
+  flagpole, if present.  If most of the pictures feature blue sky as
+  background, then distinguishing sky from flag might be problematic.
+
+* Different views of stop lights, from fairly close-up. The goal here is
+  to learn that red is always above yellow is always above green, that
+  the lights are circular, that only one light is on at a time, that the
+  frame is rectangular, and everything else is background.  Bonus points:
+  distinguish the supporting poles, if present. If most of the pictures
+  feature blue sky as background, then distinguishing sky from the light
+  might be problematic.
+
+* Different views of stereotypical suburban homes. The goal here is to
+  find doors, windows, roofs.  Bonus points: walkways, lawns, shrubbery,
+  fences. This is considerably more difficult than the flag problem, and
+  should not be tackled until the proof-of-concept works for flags.
+
+Basic Image Segmentation
+------------------------
+For training to work, images need to be segmented into patches of
+roughly similar color or texture. For this, the simplest-possible
+procedure should be used, as anything much fancier is "cheating".
+The goal of segmentation is to provide reasonable approximations for
+the following:
+
+* Relative sizes of adjacent blocks, good to about one decimal place.
+  Maybe an additional special size ratio "really tiny" or "really large"
+  i.e. more than a 1 to ten ratio. This provides about 3 bits of info
+  per pair of adjacent blocks.
+
+* Relative colors of blocks: more red, more blue, more green, brighter,
+  dimmer, very bright AKA white, very dark. Sharp contrast or low
+  contrast.  This provides about 3-5 bits of relative color info per
+  pair.
+
+* Relative positions: above, below, left, right, four diagonal
+  directions. This provides about 3 bits of relative position info.
+  A special position might be "all around".  Perhaps a bit-mask -- e.g.
+  "above and to the right."
+
+* Rough geometry: triangular, round, square, oblong, rounded corners,
+  sharp corners, star-shaped, sharp needle, obtuse, amorphous. Limit
+  this to another 3 to 5 bits of approximate shape info.
+
+Of course, more bits of info could be provided, but more bits means more
+training time, requires a larger corpus, and, in general, makes the
+learning steps harder. Dimensional reduction is a good thing. So, for
+now, fewer bits.
+
+The goal here is to find some off-the-shelf image processing software
+that is just good enough to provide the above.  Anything fancier would be
+overkill. The goal here is ease-of-use: it has to be easy to write code
+that provides the above info for an image.
+
+When analyzing photographs of tri-color flags, it's assumed that the
+image processing will typically produce 2 to 10 contiguous blocks of
+color. Ideally 4: the three bars, and the background. This seems
+unlikely, though, in most cases.
+
+Counting
+--------
+Create a table of attribute-pairs, and increment by one every time that
+pair is observed.  For example, given two adjacent regions, if the
+redder one is above the other one, then increment the count on (redder,
+above) by one.  That is, there is a number N(redder, above), and it is
+incremented each time that relation is seen. Likewise, N(redder,
+triangular), and N(redder, bigger), and also N(above, bigger), if that
+is the case.
+
+For the above 4 attribute categories, each described by 3 bits, there
+will be 4! x 2^3 x 2^3 = 24 x 8 x 8 = 1536 different possible pairings.
+
+This is one reason to keep the number of attributes low, and the number
+of bits per attribute low: the goal is to keep the "vocabulary" low.
+
+These counts can be kept "anywhere", initially, but all of the rest of
+the pipeline is built on the AtomSpace, so it makes sense to keep these
+counts in the AtomSpace.  Ask me how to do this.  Its not hard, but
+there is a bit of initial complexity. I'll help set this up. Just ask.
+
+
+Pair-wise Mutual Information
+----------------------------
+Given pairs, compute the mutual information between the above
+attributes. This project provides detailed tools for doing this,
+presuming that you've kept the counts in the AtomSpace. Ask.
+
+Minimum Spanning Tree
+---------------------
+From this point on, the same algo and code base as used for natural
+language should be possible. The code will need a lot of careful
+generalization, but maybe not a complete rewrite.
+
+Worked example TBD.
