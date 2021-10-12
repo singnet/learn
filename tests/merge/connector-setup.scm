@@ -29,6 +29,8 @@
 ; ---------------------------------------------------------------
 ; Utilities
 
+(define gsc #f)
+
 (define (filter-type wrd atype)
 	(filter
 		(lambda (atom) (equal? (cog-type atom) atype))
@@ -36,6 +38,17 @@
 
 (define (len-type wrd atype)
 	(length (filter-type wrd atype)))
+
+; ---------------------------------------------------------------
+
+; Merge words/word-classes WA WB into a cluster.
+(define (merge LLOBJ WA WB FRAC)
+	(define (frac WA WB) FRAC)
+	(define (noop W) #f)
+	(define (final) #f)
+	(define mrg (make-merge-pair LLOBJ frac 0.0 noop final #t))
+	(mrg WA WB)
+)
 
 ; ---------------------------------------------------------------
 ; Detailed balance
@@ -63,6 +76,25 @@
 		(cog-get-atoms 'Section))
 )
 
+(define (check-one-cross LLOBJ CROSS EPSILON)
+"
+  check-one-cross -- Check one CrossSection, verify that the counts
+  on it matches it's corresponding Section.
+
+  Return #t if it matches, else print an error message and return #f.
+"
+	(define sect (LLOBJ 'get-section CROSS))
+	(if (nil? sect)
+		(begin
+			(format #t "Error: no Section for ~A" CROSS)
+			#f)
+		(let ((diff (- (cog-count sect) (cog-count CROSS))))
+			(if (< (abs diff) EPSILON) #t
+				(begin
+					(format #t "Error: Unbalanced at\n~A~A" sect CROSS)
+					#f))))
+)
+
 (define (check-crosses LLOBJ EPSILON)
 "
   check-crosses -- Loop over CrossSections, verify counts match Sections
@@ -76,18 +108,28 @@
   different order.
 "
 	(every
-		(lambda (cross)
-			(define sect (LLOBJ 'get-section cross))
-			(if (nil? sect)
-				(begin
-					(format #t "Error: no Section for ~A" cross)
-					#f)
-				(let ((diff (- (cog-count sect) (cog-count cross))))
-					(if (< (abs diff) EPSILON) #t
-						(begin
-							(format #t "Error: Unbalanced at\n~A~A" sect cross)
-							#f)))))
+		(lambda (cross) (check-one-cross LLOBJ cross EPSILON))
 		(cog-get-atoms 'CrossSection))
+)
+
+(define (check-shapes LLOBJ EPSILON)
+"
+  check-shapes -- Loop over Shapes, verify counts match Sections
+
+  Self-consistent detailed balance requires that counts on CrossSections
+  should be equal to the counts on the Sections from which they came.
+  Return #t if everything balances, else return #f and print the
+  imbalance.
+
+  This performs exactly the same checks as `check-crosses`, but in a
+  different order.
+"
+	(every
+		(lambda (SHAPE)
+			(every
+				(lambda (cross) (check-one-cross LLOBJ cross EPSILON))
+				(cog-incoming-by-type SHAPE 'CrossSection)))
+		(cog-get-atoms 'ShapeLink))
 )
 
 ; ---------------------------------------------------------------

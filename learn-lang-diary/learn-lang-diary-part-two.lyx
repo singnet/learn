@@ -96,7 +96,7 @@ Language Learning Diary - Part Two
 \end_layout
 
 \begin_layout Date
-2021-present
+February-August 2021
 \end_layout
 
 \begin_layout Author
@@ -118,12 +118,413 @@ Introduction
 \end_layout
 
 \begin_layout Standard
+Part two of the diary on the language-learning effort has three major sections.
+ These are summarized here.
+ This part has been closed, and part three has been started (there will
+ be no further updates here.)
+\end_layout
+
+\begin_layout Subsubsection*
+Experiments with random grammars.
+ Feb-May 2021.
+\end_layout
+
+\begin_layout Standard
+Attempt to run the full learning calibration pipeline on a randomly-generated
+ grammar.
+ This pipeline creates a random grammar, creates a random corpus with this
+ grammar, runs the learning pipeline, learns a grammar, and then compares
+ the learned grammar to the original one.
+\end_layout
+
+\begin_layout Standard
+The goal of doing this is to be able to perform 
+\begin_inset Quotes eld
+\end_inset
+
+calibration
+\begin_inset Quotes erd
+\end_inset
+
+: by comparing the input and output grammars for fidelity, we could explore
+ the parameter space, and find the best tuning for the learning pipeline.
+ This sounds good in principle, it failed in practice.
+\end_layout
+
+\begin_layout Standard
+Doing this entailed numerous bug fixes and some new code to get everything
+ working (so that's a good thing).
+ A bit of interesting mathematics popped up: merging is a non-commutative
+ operation.
+ When merging words into a word class, one must also merge connectors into
+ connector classes.
+ The initial idea was that merges can be done as (quasi-)linear operations:
+ Attached to each word is a vector, and creating a word-class is as simple
+ as summing vectors.
+ Or possibly intersecting the basis elements, and then summing only those
+ parts where the basis overlap (thus, the quasi-linear merge.
+ This is needed, because non-overlapping vectors correspond to different
+ word senses, and we need for factor those out.
+\end_layout
+
+\begin_layout Standard
+One might imagine that merging connectors is as simple as creating vectors
+ for those, the so-called 
+\begin_inset Quotes eld
+\end_inset
+
+shape
+\begin_inset Quotes erd
+\end_inset
+
+ vectors, and summing those.
+ Because of how shapes are created, one might think that one could merge
+ words, then shapes, or first shapes and only then words, and get the same
+ thing.
+ Not so: the merge operation is non-commutative.
+ The result depends on the order it's done in.
+ This is interesting, but troublesome.
+\end_layout
+
+\begin_layout Standard
+The goal of merging is to find two things that are similar, and then place
+ them in a common class.
+ Since the 
+\begin_inset Quotes eld
+\end_inset
+
+things
+\begin_inset Quotes erd
+\end_inset
+
+ are word-disjunct pairs, one wishes to find some unambiguous, unique way
+ of merging them.
+ This seems not to be the case: there is some kind of 
+\begin_inset Quotes eld
+\end_inset
+
+torsion
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+curvature
+\begin_inset Quotes erd
+\end_inset
+
+ in the system.
+ It's not clear how to even characterize this concept clearly.
+ An unambiguous merge seems to be asking for some kind of flattening or
+ abelianization of the merge procedure.
+ It's not clear how to do this.
+\end_layout
+
+\begin_layout Standard
+Mathematically, the formalities are still opaque.
+ The notation for word-disjunct pairs is awkward.
+ The notation for the linearizations are awkward.
+ When I think about linearization, it feels very geometric: as if one is
+ working with some tangent space to some manifold.
+ But there's no manifold, and the analogies quickly falter.
+ Progress requires a much clearer, a much more concrete description of what's
+ going on with this network.
+\end_layout
+
+\begin_layout Standard
+The experiments ended with confusion.
+ Besides the above non-commutative aspect to merging, it became clear that
+ many different initial grammars are effectively equivalent, in that they
+ generate similar, if not identical corpora.
+ Thus, the naive idea of calibration fails: one can't just learn the input
+ grammar; at best one can learn the class of that grammar.
+ But, as of now, we don't have any clear way of defining a 
+\begin_inset Quotes eld
+\end_inset
+
+class of equivalent grammars
+\begin_inset Quotes erd
+\end_inset
+
+, or more broadly, 
+\begin_inset Quotes eld
+\end_inset
+
+a class of very similar grammars
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+A secondary problem was that the random grammar didn't resemble a natural
+ language grammar.
+ That was not the intent.
+ It was hoped that by picking a Zipfian distribution of vocabulary words,
+ a Zipf distribution of disjuncts, throwing in some synonyms into the mix,
+ the result would resemble a natural language.
+ This was not the case.
+ Despite having done a lot of distributional studies of English, it seems
+ that I still don't know how to characterize a natural language very well.
+ I don't know how to measure the complexity of a grammar, or the complexity
+ of a corpus.
+ There are formal questions: how can one tell when two grammars are isomorphic?
+ Almost isomorphic? There are practical questions: what is the best way
+ to factor the word-disjunct matrix?
+\end_layout
+
+\begin_layout Standard
+In the end, it all got muddy, with now easy, obvious way of moving forward.
+\end_layout
+
+\begin_layout Subsubsection*
+Back to English.
+ July 2021
+\end_layout
+
+\begin_layout Standard
+The advantage of working with English is that one can develop a gut-feel
+ as to whether one is making progress.
+ It's hard to look at a random grammar, and decide 
+\begin_inset Quotes eld
+\end_inset
+
+does that make sense?
+\begin_inset Quotes erd
+\end_inset
+
+ So, back to English.
+ Earlier English experiments went so swimmingly well, that surely moving
+ forward should be easy!
+\end_layout
+
+\begin_layout Standard
+An embarrassing problem was immediately encountered: Setting the merge threshold
+ at some apparently innocuous value, that would result in similar words
+ getting merged immediately resulted in chaos and failure.
+ This is very unlike the earlier experiments, where things went quite very
+ well.
+ Something went wrong.
+ What is it?
+\end_layout
+
+\begin_layout Standard
+Well, several things.
+\end_layout
+
+\begin_layout Itemize
+Merging requires a merge threshold.
+ Earlier experiments searched for this threshold carefully, and then applied
+ it.
+ Here, we complacently picked one, based on past experience and gut-sense,
+ and it was set too low.
+\end_layout
+
+\begin_layout Itemize
+Earlier merges used an overlap strategy, of assuming that similar words
+ might have different disjunct sets just because some words were just too
+ thinly sampled, to have seen such disjuncts.
+ This seems like a good idea, but is perhaps naive.
+ If one word-disjunct pair has been observed 100 times, and given another,
+ similar word, that word-disjunct pair has been observed zero times, well,
+ that might not be due to under-sampling.
+ 100 is really different than zero, and assigning a fraction of the 100
+ to the merge cluster is perhaps a bad idea.
+ There is a semi-formal proof that merging in this way will 
+\emph on
+always
+\emph default
+ reduce the MI.
+ So if the goal is entropy maximization, the overlap merge strategy is a
+ bad idea.
+\end_layout
+
+\begin_layout Itemize
+Some confusion regarding the above ensues.
+ The MI between words is explored, and compared to the MI between merged
+ classes.
+ After a lot of work, it really does become clear that overlap merging always
+ makes grammatical class MI's worse, and that a pure intersection merge
+ always maximizes MI.
+\end_layout
+
+\begin_layout Itemize
+It was expected that using Shapes would improve similarity scores.
+ After some work, it seems that this is not the case - they mostly seem
+ to make things worse.
+ It's not at all clear which this is so.
+ Shapes should have helped, but they don't!
+\end_layout
+
+\begin_layout Itemize
+To keep calculations relatively fast, trimmed datasets were used.
+ It now seems that trimming damages the data.
+ This is still a problem.
+ Trimming seems like it should help learning, but again, it seems like it
+ doesn't.
+ The causes of this are still not intuitively clear.
+\end_layout
+
+\begin_layout Standard
+The biggest thing that went wrong was that, when using MI as a measure of
+ similarity, some rather dis-similar words had a high MI.
+ How can that be? Turns out that if one compares a very large vector (a
+ word with lots of disjuncts, i.e.
+ a word with a large support) to another word with a very short vector (a
+ word with only one disjunct, for example), the result can be a very high
+ MI.
+ Yet this is obviously not what we want: short vectors should not be similar
+ to long vectors.
+ This prompts an exploration of other kinds of similarity measures.
+\end_layout
+
+\begin_layout Subsubsection*
+Similarity Smackdown, July-August 2021
+\end_layout
+
+\begin_layout Standard
+The poor merge results prompted a step back, to judge different similarity
+ measures (metrics).
+ Twelve 
+\emph on
+ad hoc
+\emph default
+ 
+\begin_inset Quotes eld
+\end_inset
+
+part of speech
+\begin_inset Quotes erd
+\end_inset
+
+ clusters were defined.
+ They were 
+\emph on
+ad hoc
+\emph default
+ in the sense of being hand-picked out of the first few thousand words with
+ the highest observation counts.
+ The various similarity measures were used to computer the inter-cluster
+ and intra-cluster similarity.
+ The quality of the metrics was assessed based on their ability to discriminate
+ between clusters, by taking the ratio of the RMS sizes of the clusters
+ to the RMS cluster separations.
+ Higher discrimination is judged as being better.
+\end_layout
+
+\begin_layout Standard
+Nine different similarity measures were evaluated:
+\end_layout
+
+\begin_layout Itemize
+Mutual information
+\end_layout
+
+\begin_layout Itemize
+Joint probability
+\end_layout
+
+\begin_layout Itemize
+Variation of information
+\end_layout
+
+\begin_layout Itemize
+Normalized variation of information
+\end_layout
+
+\begin_layout Itemize
+Cosine distance
+\end_layout
+
+\begin_layout Itemize
+Log cosine distance
+\end_layout
+
+\begin_layout Itemize
+Vector overlap (plain Jaccard)
+\end_layout
+
+\begin_layout Itemize
+Conditional Jaccard distance
+\end_layout
+
+\begin_layout Itemize
+Probability Jaccard distance.
+\end_layout
+
+\begin_layout Standard
+These were compared one datasets with and without shapes, at seven different
+ levels of trimming (so, 14 datasets total).
+ The results were as follows:
+\end_layout
+
+\begin_layout Itemize
+Trimming is consistently deleterious to results.
+ However, using the full dataset blows up both RAM and compute time.
+ The best compromise, for the given datasets, appear to be to discard all
+ words that have a small number of observation counts, and to discard sections
+ with an observation count of less than two.
+\end_layout
+
+\begin_layout Itemize
+Shapes mostly fail to improve similarity measurements, for any of the similarity
+ measures.
+ Using shapes makes all vectors more similar (smaller RMS intra-cluster,
+ but also smaller RMS inter-cluster).
+ The overall effect of shapes is mixed: they seem to improve things only
+ for highly-trimmed datasets.
+ Given that shapes add a large computational burden, they seem to offer
+ no benefit.
+ (They sharply increase the amount of time needed to compute similarity,
+ and can triple the RAM usage.)
+\end_layout
+
+\begin_layout Itemize
+The best overall similarity measure was vector overlap.
+ Second place overall goes to Conditional Jaccard (which uses probabilities
+ in the Jaccard min/max formula) Third place goes to Probability Jaccard.
+ MI is consistently in fifth place.
+\end_layout
+
+\begin_layout Standard
+A few comments.
+ Although the motivation for these experiments was the large MI between
+ short and long vectors, the experiments actually eliminated short vectors.
+ That is, the hand-picked clusters consisted of words with relatively high
+ counts, and thus relatively long vectors.
+\end_layout
+
+\begin_layout Standard
+The failure of Probability Jaccard to dominate is also surprising.
+ The Wikipedia article explains that it is in some sense optimal: it provides
+ 
+\begin_inset Quotes eld
+\end_inset
+
+maximally consistent sampling
+\begin_inset Quotes erd
+\end_inset
+
+.
+ This appears not to help us.
+ It is also very computationally intensive; its the slowest similarity measure
+ of all.
+\end_layout
+
+\begin_layout Section*
+February 2021 - Closed Loop Calibration
+\end_layout
+
+\begin_layout Standard
 Part two of the diary on the language-learning effort starts with the new
  task of of closed loop learning.
  The idea of closed loop learning is that the accuracy of the learned grammars
  can be very closely monitored and measured, thus allowing the learning
  algorithms to be tuned for speed and measured for accuracy.
- The closed loop is a basic three-step process:
+ The closed loop is a basic five-step process:
 \end_layout
 
 \begin_layout Enumerate
@@ -6080,7 +6481,7 @@ status open
 
 \end_inset
 
-Looking at the connectors on D, we see that they are mergable, and that
+Looking at the connectors on D, we see that they are mergeable, and that
  the counts are consistent.
  So, based on this toy model, we can either try to merge connectors directly,
  or we can, at a later date, merge connectors by reconstructing them from
@@ -8781,7 +9182,7 @@ of to
 <column alignment="center" valignment="top">
 <column alignment="center" valignment="top">
 <row>
-<cell multicolumn="1" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+<cell multicolumn="1" alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -15153,7 +15554,7 @@ i.e.
 i.e.
 
 \emph default
- its Euclidean lenghth.
+ its Euclidean length.
  This confusion easily extends to 
 \begin_inset Quotes eld
 \end_inset
@@ -15923,7 +16324,7 @@ status collapsed
 After the analysis in this section was performed, a procedural issue was
  detected.
  It's not clear how this affects results.
- The proceedural problem is that the MM^T marginals were computed first,
+ The procedural problem is that the MM^T marginals were computed first,
  and then the dataset was trimmed.
  For computing the MI, the MM^T marginals from the full dataset were used.
  I'm thinking that they should have been recomputed after trimming.
@@ -19193,7 +19594,7 @@ Flavors of Jaccard similarity
 \end_layout
 
 \begin_layout Standard
-There are multiple variants of Jaccard similarlity that apply to the current
+There are multiple variants of Jaccard similarity that apply to the current
  situation.
  This leads to a bit of a naming crisis.
 \end_layout
@@ -19302,8 +19703,8 @@ If word
 \end_layout
 
 \begin_layout Standard
-The simplest, narrowest, original defintion of the Jaccard similarity is
- the unwieighted similarity given by 
+The simplest, narrowest, original definition of the Jaccard similarity is
+ the unweighted similarity given by 
 \begin_inset Formula $f\left(w,d\right)=\left[N\left(w,d\right)>0\right]$
 \end_inset
 
@@ -19478,7 +19879,7 @@ The subscript
 \begin_layout Standard
 The 
 \emph on
-conditional probablity
+conditional probability
 \emph default
  of observing a word 
 \begin_inset Formula $w$
@@ -19592,7 +19993,7 @@ This has the desirable property of giving the same score to synonyms.
 \begin_inset Formula $w$
 \end_inset
 
- should be judged as perfect synonyms, and so should be perfetly similar.
+ should be judged as perfect synonyms, and so should be perfectly similar.
  Plugging through, we find that the MI obeys this condition: 
 \begin_inset Formula 
 \[
@@ -19784,7 +20185,7 @@ Upshot is: the conventional dot product is not altered.
 \end_layout
 
 \begin_layout Standard
-The primary problem here is that this voilates one of the desired properties
+The primary problem here is that this violates one of the desired properties
  for the similarity of synonyms.
  That is, if 
 \begin_inset Formula $N\left(u,d\right)=\alpha N\left(w,d\right)$
@@ -19984,7 +20385,7 @@ I he it you him she they me them we -
 \begin_inset Text
 
 \begin_layout Plain Layout
-posessive
+possessive
 \end_layout
 
 \end_inset
@@ -20321,7 +20722,7 @@ I he it you him she they me them we -
 \begin_inset Text
 
 \begin_layout Plain Layout
-posessive
+possessive
 \end_layout
 
 \end_inset
@@ -20560,6 +20961,10 @@ difficult set
  an easier set that way.
 \end_layout
 
+\begin_layout Standard
+Anyway, the experiments below were all performed with the difficult set.
+\end_layout
+
 \begin_layout Subsection*
 Summary of Results
 \end_layout
@@ -20575,8 +20980,8 @@ MI beats the pants off of cosine similarity; of all the distance measures,
 \end_layout
 
 \begin_layout Itemize
-Suprpsingly, three different metrics provide superior results to MI: overlap
- similarity (unweighted Jaccard similarity), weighted Jacard similarity
+Surprisingly, three different metrics provide superior results to MI: overlap
+ similarity (unweighted Jaccard similarity), weighted Jaccard similarity
  and 
 \begin_inset Quotes eld
 \end_inset
@@ -20585,15 +20990,24 @@ probability
 \begin_inset Quotes erd
 \end_inset
 
- Jaccard similarity, with the last being the best – improving the inter-intra-cl
-uster separation by over 10% compared to using MI.
+ Jaccard similarity, in order of quality of results.
+ These improve the inter-intra-cluster separation by over 10% compared to
+ using MI.
+ (So - 10% is not a lot, but we'll take what we can.)
 \end_layout
 
 \begin_layout Itemize
 This last result is ...
- surprising, and seems to contradict the naive beleif in information theory.
+ surprising, and seems to contradict the naive belief in information theory.
  How is this to be explained? Is there some deeper information-theoretic
  explanation that has not been grasped?
+\end_layout
+
+\begin_layout Itemize
+The experiment fails to measure the thing that originally inspired it: There
+ are word pairs with very high MI but very low overlap similarity, simply
+ because one of the word vectors is very short.
+ The hand-picked clusters above contain no short vectors!
 \end_layout
 
 \begin_layout Itemize
@@ -20607,6 +21021,11 @@ Surprisingly, the use of shapes makes the MI scores considerably worse.
 Shapes do seem to make things better, when using the various forms of the
  Jaccard distance.
  This is especially the case for the smaller/smallest datasets.
+\end_layout
+
+\begin_layout Standard
+See also a different summary of results at the bottom, and another at the
+ top.
 \end_layout
 
 \begin_layout Subsection*
@@ -21612,7 +22031,7 @@ So lets try it out.
 \begin_inset Quotes eld
 \end_inset
 
-representatitive
+representative
 \begin_inset Quotes erd
 \end_inset
 
@@ -23612,7 +24031,7 @@ A much bigger dataset than the above.
 \begin_inset Quotes eld
 \end_inset
 
-representatitive
+representative
 \begin_inset Quotes erd
 \end_inset
 
@@ -24904,7 +25323,7 @@ Rather than reporting on all 66 inter-cluster distances, it seems simplest
  to provide a single score: the grand-total average and rms of the inter-cluster
  scores.
  There are 4617 inter-cluster pairs, with a mean of -1.32 and rms of 3.007.
- Comparing to the intra-cluster mean and rms, it looks like the diffference
+ Comparing to the intra-cluster mean and rms, it looks like the difference
  is 3.70, or about 1.3 std-dev distance between the two.
 \end_layout
 
@@ -26097,8 +26516,17 @@ Trimmed dataset
 \begin_layout Standard
 Redo of trimming, as explained above.
  These are more tightly trimmed, but still not fully trimmed.
- See below for dicussion.
+ See below for discussion.
  Time to perform the filtering is about 4200 seconds for each file.
+\end_layout
+
+\begin_layout Standard
+Notation: filename-WW-DD-SS-foo where WW is the cutoff for the minimum time
+ this word has been observed.
+ DD is the cutoff for the number of times a disjunct has been observed,
+ and SS is the cutoff for the number of times a given section has been observed.
+ This is in keeping with how the filter object is designed in the main atomspace
+ repo – these are the three filter parameters.
 \end_layout
 
 \begin_layout Standard
@@ -27060,7 +27488,7 @@ tot
 \begin_inset Quotes erd
 \end_inset
 
- colum records the total number of pairs.
+ column records the total number of pairs.
  In formulas:
 \begin_inset Formula 
 \[
@@ -28271,6 +28699,18 @@ So we conclude:
 
 \begin_layout Itemize
 Less filtering gives better results.
+\end_layout
+
+\begin_layout Itemize
+Shapes make all vectors more similar to each other.
+ The RMS with shapes is smaller, considerably smaller, with shapes, than
+ without them.
+\end_layout
+
+\begin_layout Itemize
+Unfortunately, this is true not only within clusters, but also between them!
+ Shapes fail to improve the discrimination between clusters.
+ This is counter-intuitive.
 \end_layout
 
 \begin_layout Itemize
@@ -30732,7 +31172,7 @@ A touch better than the joint-probability results above.
 \end_layout
 
 \begin_layout Itemize
-Separation is not as good as MI, but are within 5% of teh MI separation.
+Separation is not as good as MI, but are within 5% of the MI separation.
 \end_layout
 
 \begin_layout Subsection*
@@ -31935,7 +32375,7 @@ Separation is about 10% better than the MI separation, for the plain sections.
 \end_layout
 
 \begin_layout Itemize
-Seperaation is about 5% better than the MI separation, for the shapes.
+Separation is about 5% better than the MI separation, for the shapes.
 \end_layout
 
 \begin_layout Subsection*
@@ -34389,7 +34829,7 @@ larger is better
 \begin_inset Quotes erd
 \end_inset
 
- – larger log2 numbers mean a better match
+ – larger log2 numbers mean a better match.
 \end_layout
 
 \begin_layout Standard
@@ -35585,8 +36025,25 @@ conditional Jaccard similarity
  This is provided by the `cond-jacc` method on the `add-similarity-compute`
  object.
  This is the same as that defined, using above: its the Ruzicka similarity
- for the conditional proabilities.
- The Jaccard similarity ranges from 0.0 to 1.0.
+ for the conditional probabilities.
+ To recap, so that I don't have to scroll up and re-read, the conditional
+ Jaccard similarity is given by
+\begin_inset Formula 
+\[
+J_{R}\left(N;u,w\right)=\frac{\sum_{d}\min\left(p\left(w,d\right),p\left(u,d\right)\right)}{\sum_{d}\max\left(p\left(w,d\right),p\left(u,d\right)\right)}
+\]
+
+\end_inset
+
+where 
+\begin_inset Formula $p\left(w,d\right)=N\left(w,d\right)/N\left(*,*\right)$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+The conditional Jaccard similarity ranges from 0.0 to 1.0.
  As above, log2 is taken.
 \end_layout
 
@@ -36746,7 +37203,7 @@ For the shapeless sections, this provides almost as good separation as the
 \end_layout
 
 \begin_layout Itemize
-Using shapes seems to improve seperability by a fair amount – again, bucking
+Using shapes seems to improve separability by a fair amount – again, bucking
  a trend.
  Most of the improvement is in the smaller datasets.
 \end_layout
@@ -36760,9 +37217,24 @@ Inter-intra Probability Jaccard summary
 \end_layout
 
 \begin_layout Standard
-The table below records the inter and intra cluster average cosine distance
+The table below records the inter and intra cluster average 
+\begin_inset Quotes eld
+\end_inset
+
+probability Jaccard distance
+\begin_inset Quotes erd
+\end_inset
+
  for the datasets.
- This is provided per API for the `add-similarity-compute` object.
+ This is provided by the 
+\family typewriter
+`add-similarity-compute`
+\family default
+ object, by calling the 
+\family typewriter
+'right-prjacc
+\family default
+ method.
  The probability-Jaccard similarity ranges from 0.0 to 1.0.
  As above, log2 is taken.
 \end_layout
@@ -37927,13 +38399,2454 @@ For shapeless separation, this is about 5% to 10% better than MI.
 \end_layout
 
 \begin_layout Itemize
-Adding shapes further improves seperability, again bucking a trend.
+Adding shapes further improves separability, again bucking a trend.
 \end_layout
 
 \begin_layout Standard
 This is stunningly painfully slow for the larger datasets, and so the algo
  needs to be refactored to move common computations out of the inner loop.
  If this cannot be done, then this also is useless.
+\end_layout
+
+\begin_layout Subsection*
+Summary
+\end_layout
+
+\begin_layout Standard
+Lets try to summarize the results above.
+ The table below reproduces the separations for the various different measures.
+ The column titles are in the same order as in the text.
+ There are nine columns.
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="15" columns="10">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+filename
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MI
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+joint
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+vi
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+nvi
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+cos
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+logcos
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+ovrlp
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+condj
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+prjac
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-640-128-80-marg
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.000
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.020
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.957
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.075
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.614
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.957
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.131
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.086
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.107
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-320-64-40-marg
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.100
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.029
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.031
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.207
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.641
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.004
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.191
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.121
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.139
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-160-32-20-marg
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.102
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.041
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.081
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.212
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.663
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.034
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.170
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.110
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.144
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-80-16-10-marg
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.160
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.059
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.129
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.200
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.690
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.085
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.213
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.176
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.181
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-40-8-5-marg
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.237
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.177
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.201
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.260
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.701
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.177
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.336
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.314
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.319
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-20-4-2-marg
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.317
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.262
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.286
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.364
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.710
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.269
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.465
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.424
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.418
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+mpg-marg
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.395
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.303
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.317
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.347
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.695
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.318
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.440
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.440
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-640-128-80-shape
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.129
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.859
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.004
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.223
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.676
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.923
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.344
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.161
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.193
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-320-64-40-shape
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.041
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.849
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.947
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.039
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.726
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.899
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.215
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.170
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.162
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-160-32-20-shape
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.907
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.873
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.900
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.941
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.743
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.912
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.221
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.166
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.143
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-80-16-10-shape
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.986
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.954
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.955
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.994
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.770
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.977
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.343
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.307
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.306
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-40-8-5-shape
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.018
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.975
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.994
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.995
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.770
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.027
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.402
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.382
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.379
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-20-4-2-shape
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.993
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.997
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.005
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.968
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.784
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.067
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.302
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.389
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1.388
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+mpg-shape
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+So we conclude:
+\end_layout
+
+\begin_layout Itemize
+In all cases, the less that the dataset is trimmed, the greater the separation
+ between clusters.
+ That is, trimming is unambiguously harmful to the quality of the data.
+\end_layout
+
+\begin_layout Itemize
+Cosine distance is stunningly bad.
+ It's in a league of it's own.
+ Other than that, the scores are actually pretty similar, differing by at
+ most dozens of percent.
+\end_layout
+
+\begin_layout Itemize
+The MI is a middle-of-the-road measure.
+ It is better than four columns: joint-probability, variation of information,
+ cosine, log cosine, but worse than the remaining four: normalized VI, overlap,
+ conditional Jaccard and probability Jaccard.
+\end_layout
+
+\begin_layout Itemize
+Shapes have a mixed effect on the discrimination between clusters.
+ They make things much worse for the five worst metrics.
+ They make things better for the three best metrics, but only when the datasets
+ are heavily trimmed.
+ For the least-trimmed dataset, shapes make things worse.
+\end_layout
+
+\begin_layout Standard
+Ranking depends on the amount of trimming.
+ Different rankings result, depending on how much trimming one does.
+ The table below shows first through fifth places for rankings.
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="15" columns="6">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+filename
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1st
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2nd
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3rd
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+4th
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+5th
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-640-128-80-marg
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+overlap
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+prjac
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+condj
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+nvi
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+joint
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-320-64-40-marg
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+nvi
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+overlap
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+prjac
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+condj
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MI
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-160-32-20-marg
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+nvi
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+overlap
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+prjac
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+condj
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MI
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-80-16-10-marg
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+overlap
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+nvi
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+prjac
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+condj
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MI
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-40-8-5-marg
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+overlap
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+prjac
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+condj
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+nvi
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MI
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-20-4-2-marg
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+overlap
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+condj
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+prjac
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+nvi
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MI
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+mpg-marg
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-640-128-80-shape
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+overlap
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+nvi
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+prjac
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+condj
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MI
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-320-64-40-shape
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+overlap
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+condj
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+prjac
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MI
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+nvi
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-160-32-20-shape
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+overlap
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+condj
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+prjac
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+nvi
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+logcos
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-80-16-10-shape
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+overlap
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+condj
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+prjac
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+nvi
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MI
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-40-8-5-shape
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+overlap
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+condj
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+prjac
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+logcos
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MI
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+zfil-20-4-2-shape
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+condj
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+prjac
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+overlap
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+logcos
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+vi
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+mpg-shape
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+So we conclude:
+\end_layout
+
+\begin_layout Itemize
+Overlap is a clear winner, across the board.
+\end_layout
+
+\begin_layout Itemize
+Conditional Jaccard and Probability Jaccard are close to overlap, both for
+ the plain disjuncts, and for the shapes.
+\end_layout
+
+\begin_layout Itemize
+For the shape datasets, 4th and 5th place are very distant from 3rd place.
+\end_layout
+
+\begin_layout Itemize
+From first principles, one would have concluded that prjac should have done
+ best, as it is in some sense 
+\begin_inset Quotes eld
+\end_inset
+
+optimal
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Yet here, it rarely gets out of third place, hitting second place only
+ a few times.
+ The fact that it is very computationally expensive is a further strike
+ against it.
+\end_layout
+
+\begin_layout Itemize
+Overlap beats the dominant 2nd place holder by a fair bit.
+ One upset: large shapes.
+ When overlap was in second place, it was by a slim margin.
+\end_layout
+
+\begin_layout Itemize
+nvi makes a few showings, but does not seem to be worth considering any
+ further.
+ When its not in 1st place, its pretty distant from overlap.
+\end_layout
+
+\begin_layout Itemize
+condj seems to be overall second place, and a fairly strong contender.
+\end_layout
+
+\begin_layout Standard
+Not visible in the above table are the above factoids, observed elsewhere:
+\end_layout
+
+\begin_layout Itemize
+prjac is very compute intensive.
+\end_layout
+
+\begin_layout Itemize
+Shapes consistently reduce the differences between vectors.
+ Both inter-cluster differences are smaller but also intra-cluster differences
+ are also smaller.
+ Both RMS scores are pretty much always tighter, with shapes.
+\end_layout
+
+\begin_layout Itemize
+Shapes have a mixed effect on discrimination between clusters.
+ Discussed in the paragraph above.
+\end_layout
+
+\begin_layout Itemize
+Using shapes has a large impact on RAM and CPU usage.
+ It takes a lot of time to create them, they triple or quadruple RAM usage,
+ and all vector similarity computations take longer, because the vectors
+ are longer.
+\end_layout
+
+\begin_layout Itemize
+Most of the tables have no results for the full dataset.
+ That's because computing with the full dataset is very CPU intensive.
+ We conclude that a very mild amount of trimming, to eliminate the onesie-twosie
+ counts is likely to be well worth the effort.
+ Particularly notable is that the scores for overlap and condj are tied
+ for the full dataset, and MI is in a close 3rd place.
+ Rerunning the experiment with more lightly trimmed datasets might be worthwhile.
+ (If rerun, then the 
+\begin_inset Quotes eld
+\end_inset
+
+better
+\begin_inset Quotes erd
+\end_inset
+
+ clusters should be used.
+ This will prevent direct comparison, but so what.)
+\end_layout
+
+\begin_layout Standard
+To summarize: moving forward, it seems like we should eschew trimming, and
+ use overlap for the similarity measure.
+ However, understanding conditional Jaccard is also worthwhile.
+ Retaining MI as a benchmark also seems prudent, given how much effort has
+ been sunk into it.
+ If there's time, then understanding how the 
+\begin_inset Quotes eld
+\end_inset
+
+optimal
+\begin_inset Quotes erd
+\end_inset
+
+ probability Jaccard seems not optimal for this problem is worthwhile.
+\end_layout
+
+\begin_layout Standard
+Apparently, the use of shapes is not worth the effort.
 \end_layout
 
 \begin_layout Section*
@@ -39719,7 +42632,7 @@ RAM to load pairs
 \begin_inset Text
 
 \begin_layout Plain Layout
-
+41.3
 \end_layout
 
 \end_inset
@@ -39993,6 +42906,8 @@ The End
 
 \begin_layout Standard
 This is the end of the diary.
+ It spans the time period of February-August 2021.
+ The next part is Part Three.
 \end_layout
 
 \end_body

@@ -189,8 +189,8 @@
 	(define germ (LLOBJ 'left-element resect))
 	(define mgsf (LLOBJ 'flatten GLS resect))
 
-	; This is confusing ... can't we just call accumulate-count?
-	; (accumulate-count LLOBJ mgs donor FRAC NOISE)
+	; This is confusing ... why can't we just call accumulate-count?
+	; (accumulate-count LLOBJ mgs donor FRAC)
 	; ???
 	(if (nil? (cog-link 'MemberLink germ GLS))
 		(let ((donor (LLOBJ 'make-section XDON))
@@ -218,9 +218,9 @@
 
 ; ---------------------------------------------------------------------
 
-(define (reshape-merge LLOBJ GLS MRG W DONOR FRAC NOISE)
+(define (reshape-merge LLOBJ GLS MRG W DONOR FRAC)
 "
-  reshape-merge LLOBJ GLS MRG W DONOR FRAC NOISE
+  reshape-merge LLOBJ GLS MRG W DONOR FRAC
 
   Merge connectors on the Section/CrossSection MRG.
   This creates a set of 'consistent' Sections/CrossSections such that
@@ -236,6 +236,10 @@
   When this completes, the resulting Sections/CrossSections are fully
   self-consistent. The inconsistent Sections/CrossSections will have
   thier counts set to zero, and need to be deleted in a subsequent pass.
+
+  FRAC is a floating-point numeric value, of the fraction of counts to
+  transfer. This might be a value between zero and one when MRG doesn't
+  exist.
 "
 	(define donor-type (cog-type DONOR))
 
@@ -257,19 +261,19 @@
 					(for-each
 						(lambda (XST)
 							(define xmr (LLOBJ 're-cross GLS XST))
-							(accumulate-count LLOBJ xmr XST FRAC NOISE))
+							(accumulate-count LLOBJ xmr XST FRAC))
 						(LLOBJ 'make-cross-sections DONOR))
 
-						; We can rebalance here, but it does not seem to
-						; affect anything.
-						; (rebalance-count LLOBJ DONOR (LLOBJ 'get-count DONOR))
+					; We can rebalance here, but it does not seem to
+					; affect anything.
+					; (rebalance-count LLOBJ DONOR (LLOBJ 'get-count DONOR))
 
-						; Special case: donor was already non-flat. We need
-						; to transfer all of the counts over.
-						(when (LLOBJ 'is-nonflat? GLS MRG)
-							(set-count MRG
-								(+ (LLOBJ 'get-count MRG) (LLOBJ 'get-count DONOR)))
-							(rebalance-count LLOBJ DONOR 0)))))
+					; Special case: donor was already non-flat. We need
+					; to transfer all of the counts over.
+					(when (LLOBJ 'is-nonflat? GLS MRG)
+						(set-count MRG
+							(+ (LLOBJ 'get-count MRG) (LLOBJ 'get-count DONOR)))
+						(rebalance-count LLOBJ DONOR 0)))))
 
 		; Always rebalance the merged section.
 		(rebalance-count LLOBJ MRG (LLOBJ 'get-count MRG))
@@ -290,21 +294,25 @@
 	(define ns 0)
 	(define nx 0)
 
+	(define (is-zero? cnt) (< cnt 1.0e-10))
+
 	; If the count in Section is zero, delete it.
 	; Also scan all of it's crosses. Crosses aren't normally stored in
 	; the DB, so we just extract them.
 	(define (del-sect SEC)
-		(for-each (lambda (xst)
-			(when (and (cog-atom? xst) (is-zero? (LLOBJ 'get-count xst)))
-				(let ((shp (gdr xst)))
-					(cog-extract! xst)
-					(cog-extract! shp)
-					(set! nx (+ 1 nx)))))
-			(LLOBJ 'get-cross-sections SEC))
+		; Cleanup cross sections, if they are provided.
+		(when (LLOBJ 'provides 'get-cross-sections)
+			(for-each (lambda (xst)
+				(when (and (cog-atom? xst) (is-zero? (LLOBJ 'get-count xst)))
+					(let ((shp (gdr xst)))
+						(cog-extract! xst)
+						(cog-extract! shp)  ;; Safe, its not recursive.
+						(set! nx (+ 1 nx)))))
+				(LLOBJ 'get-cross-sections SEC)))
 		(when (is-zero? (LLOBJ 'get-count SEC))
 			(let ((csq (gdr SEC)))
 				(cog-delete! SEC)
-				(cog-delete! csq)
+				(cog-delete! csq)  ;; Safe; because its not recursive.
 				(set! ns (+ 1 ns)))))
 
 	(define (del-xes XST)
@@ -314,7 +322,7 @@
 		(when (and (cog-atom? XST) (is-zero? (LLOBJ 'get-count XST)))
 			(let ((shp (gdr XST)))
 				(cog-extract! XST)
-				(cog-extract! shp)
+				(cog-extract! shp)  ;; Safe; because its not recursive.
 				(set! nx (+ 1 nx)))))
 
 	; Cleanup after merging.
@@ -325,9 +333,19 @@
 					((eq? 'Section (cog-type ITEM)) (del-sect ITEM))
 					((eq? 'CrossSection (cog-type ITEM)) (del-xes ITEM))
 					(else
-						(throw 'remove-empty-sections 'assert "Its broken")))
+						(throw 'assert 'remove-empty-sections "Its broken")))
 				))
 		(LLOBJ 'right-stars ROW))
+
+	; After doing the above, we might find that ROW appears in
+	; Connectors that are not used anywhere.  Delete those connectors.
+	(for-each cog-delete! (cog-incoming-by-type ROW 'Connector))
+
+	; After doing the above, we may find that ROW has no more users,
+	; anywhere, except in the marginals. We should clean those up
+	; too, except we don't know what the marginals are. Alas!
+	; FIXME but how?
+
 	; (format #t "Deleted ~A secs, ~A crosses for ~A" ns nx ROW)
 )
 

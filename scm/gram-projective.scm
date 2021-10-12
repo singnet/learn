@@ -21,6 +21,18 @@
 ; and in the general discussion of what this code does. Otherwise, what
 ; to merge, and where to put the merger results are defined by LLOBJ.
 ;
+; TODO: This code implements the "projection merge" strategy, but the
+; latest results indicate that this does not improve quality all that
+; much, if at all. So the latest merge style `comi` just disables
+; the projection merge by setting the union-frac to zero.  Thus, the
+; code in this file could be simplified by ripping out all the
+; union-merge stuff.  Anyway, the democratic-vote idea will require
+; explicit lists of disjuncts to merge, so this needs a rewrite, anyway.
+;
+; XXX Unless we decide to union-in anything below the noise-threshold
+; cutoff, in which case we want to continue doing unions, just to handle
+; this particular case.
+;
 ; Orthogonal merging
 ; ------------------
 ; In this merge strategy, `w` is decomposed into `s` and `t` by
@@ -134,30 +146,6 @@
 ; of the two is already a word-class, then the counts are simply moved
 ; from the word to the class.
 ;
-; merge-discrim
-; -------------
-; Built on the merge-project method, the FRAC is a sigmoid function,
-; ranging from 0.0 to 1.0, depending on the cosine between the vectors.
-; The idea is that, if two words are already extremely similar, we may
-; as well assume they really are in the same class, and so do a union
-; merge. But if the words are only kind-of similar, but not a lot, then
-; assume that the are both linear combinations of several word senses,
-; and do only the minimal overlap merge, so as to avoid damaging the
-; other senses.
-;
-; A reasonable strategy would seem to bee to take
-;
-;   FRAC = (cos - cos_min) / (1.0 - cos_min)
-;
-; where `cos_min` is the minimum cosine acceptable, for any kind of
-; merging to be performed.
-; Implemented in the `make-discrim` call.
-;
-; merge-disinfo
-; -------------
-; Like `merge-discrim` but using mutual information instead of cosines.
-; Implemented in the `make-disinfo` call.
-;
 ; start-cluster, merge-into-cluster
 ; ---------------------------------
 ; Implementation of the common parts of the above merge styles,
@@ -168,24 +156,10 @@
 ; -----------
 ; High-level wrapper for above. Provides a generic API.
 ;
-; Parameter choices
-; -----------------
-; Gut-sense intuition suggests that `merge-mifuzz` with a min acceptable
-; MI of about 5 works best. The union fraction should be set to zero.
-;
-; Earlier work is summarized in `grammar-report/grammar-report.pdf`.
-; Pretty much everything there used a union-merge fraction of 0.3,
-; which, in reprospect, may have been much too large. Certainly,
-; if the goal is to maximize entropy, then any value greater than zero
-; will fail to do that.  Thus, the only reason to usae a union fraction
-; greater than zero is if one suspects one is trapped in a local
-; maximum, and needs to hop out.  Practical experience shows that this
-; can be a bit risky, and easily corrupts clustering.
-;
 ; TODO
 ; ----
 ; It might be useful to move the management of the MemberLink's to
-; the `add-cluster-gram` object.
+; the `add-gram-class-api` object.
 ;
 ; ---------------------------------------------------------------------
 
@@ -193,13 +167,60 @@
 (use-modules (opencog) (opencog matrix) (opencog persist))
 
 ; ---------------------------------------------------------------------
-; Return #t if the count is effectively zero.
-; Use an epsilon for rounding errors.
-(define (is-zero? cnt) (< cnt 1.0e-10))
+; Debugging prints which print Section Cross-Sections in a short-hand.
+; This short-hand is used extensively in the unit tests.
 
-(define (accumulate-count LLOBJ ACC PAIR FRAC NOISE)
+(define (prt-word W)
+	(define t (cog-type W))
+	(cond
+		((equal? t 'WordClassNode) (format #f "{~A}" (cog-name W)))
+		((equal? t 'WordNode) (cog-name W))
+		((equal? t 'VariableNode) "$")
+	)
+)
+
+(define (prt-conseq LST)
+	(string-concatenate
+		(map (lambda (CON)
+			(format #f " ~A~A" (prt-word (gar CON)) (cog-name (gdr CON))))
+			LST))
+)
+
+(define (prt-section SECT)
+	(format #f "~6,3F * (~A, ~A)"
+		(cog-count SECT)
+		(prt-word (gar SECT))
+		(prt-conseq (cog-outgoing-set (gdr SECT))))
+)
+
+(define (prt-cross-section XSECT)
+	(format #f "~6,3F * [~A, <~A, ~A>]"
+		(cog-count XSECT)
+		(prt-word (gar XSECT))
+		(prt-word (gar (gdr XSECT)))
+		(prt-conseq (cdr (cog-outgoing-set (gdr XSECT)))))
+)
+
+(define-public (prt-element ELT)
+	(if (equal? (cog-type ELT) 'Section)
+		(prt-section ELT)
+		(prt-cross-section ELT))
+)
+
+(define-public (prt-element-list LST)
+	(string-concatenate
+		(map (lambda (ELT)
+			(format #f "~A\n" (prt-element ELT)))
+			LST))
+)
+
+; ---------------------------------------------------------------------
+
+;; XXX This should not be public/exported, except that the unit tests
+;; need this.
+(define-public (accumulate-count LLOBJ ACC PAIR FRAC)
 "
-  accumulate-count LLOBJ ACC PAIR FRAC NOISE -- Accumulate count
+  accumulate-count LLOBJ ACC PAIR FRAC -- Accumulate count
     from PAIR into ACC.
 
   ACC and PAIR should be two pairs in the matrix LLOBJ. (Usually,
@@ -210,10 +231,8 @@
   If the count on ACC is non-zero, then *all* of the count on PAIR
   will be transfered (and PAIR will be removed from the database).
 
-  If the count on ACC is zero, and the count on PAIR is greater than
-  NOISE (floating-point noise-floor), then only a FRAC of the count
-  will get transfered to ACC. If the count is below the noise floor,
-  then all of it will be transfered over.
+  If the count on ACC is zero, then only a FRAC of the count will
+  get transfered to ACC.
 
   Both Atoms, with updated counts, are stored to the database.
 
@@ -227,30 +246,31 @@
 	(define mcnt (LLOBJ 'get-count PAIR))
 	(define acnt (LLOBJ 'get-count ACC))
 
+	; Return #t if the count is effectively zero.
+	; Use an epsilon for rounding errors.
+	(define (is-zero? cnt) (< cnt 1.0e-10))
+
 	; If the accumulator count is zero, transfer only a FRAC of
 	; the count into the accumulator.
-	(define taper-cnt (if
-			(and (is-zero? acnt) (< NOISE mcnt))
-			(* FRAC mcnt) mcnt))
+	(define taper-cnt (* FRAC mcnt))
 
 	; Update the count on the donor pair.
-	; If the count is zero or less, delete the donor pair.
-	; (Actually, it should never be less than zero!)
+	; Avoid touching the database if the count is zero;
+	; the donor will be deleted later on.
 	(define (update-donor-count SECT CNT)
 		(set-count SECT CNT)
 		(unless (is-zero? CNT) (store-atom SECT)))
 
 	; If there is nothing to transfer over, do nothing.
-	(if (not (is-zero? taper-cnt))
-		(begin
+	(when (not (is-zero? taper-cnt))
 
-			; The accumulated count
-			(set-count ACC (+ acnt taper-cnt))
-			(store-atom ACC) ; save to the database.
+		; The accumulated count
+		(set-count ACC (+ acnt taper-cnt))
+		(store-atom ACC) ; save to the database.
 
-			; Decrement the equivalent amount from the donor pair.
-			(update-donor-count PAIR (- mcnt taper-cnt))
-		))
+		; Decrement the equivalent amount from the donor pair.
+		(update-donor-count PAIR (- mcnt taper-cnt))
+	)
 
 	; Return how much was transfered over.
 	taper-cnt
@@ -258,6 +278,133 @@
 
 ; ---------------------------------------------------------------------
 
+(define (assign-to-cluster LLOBJ CLS WA CLIQUE)
+"
+  assign-to-cluster LLOBJ CLS WA CLIQUE --
+
+  Loop over the disjuncts on WA, and call CLIQUE on each,
+  passing CLS and the disjunct to it.
+
+  A MemberLink from WA to CLS will be created, holding the
+  accumulated count returned by CLIQUE.
+
+  LLOBJ is used to access pairs.
+  WA should be of `(LLOBJ 'left-type)`
+  CLS should be interpretable as a row in LLOBJ.
+
+  CLIQUE is a function that returns how much of a given disjunct
+     is merged.
+
+  The merger of row WA into CLS is performed, using the CLIQUE
+  function to make disjunct-by-disjunct merge decisions.
+
+  This assumes that storage is connected; the updated counts are
+  written to storage.
+"
+	; set-count ATOM CNT - Set the raw observational count on ATOM.
+	; XXX FIXME there should be a set-count on the LLOBJ...
+	; Strange but true, there is no setter, currently!
+	(define (set-count ATOM CNT) (cog-set-tv! ATOM (CountTruthValue 1 0 CNT)))
+
+	(define monitor-rate (make-rate-monitor))
+
+	; Accumulated count on the MemberLink.
+	(define accum-cnt 0)
+
+	; Caution: there's a "feature" bug in assignment when used with
+	; connector merging. The code below will create sections with
+	; dangling connectors that may be unwanted. Easiest to explain by
+	; example. Consider a section (f, abe) being merged into a cluster
+	; {e,j} to form a cluster {e,j,f}. The code below will create a
+	; section ({ej}, abe) as the C-section, and transfer some counts
+	; to it. But, when connector merging is desired, it should have gone
+	; to ({ej}, ab{ej}). There are two possible solutions: have the
+	; connector merging try to detect this, and clean it up, or have
+	; the tuple object pair up (f, abe) to ({ej}, ab{ej}). There is no
+	; "natural" way for the tuple object to create this pairing (it is
+	; "naturally" linear, by design) so we must clean up during connector
+	; merging.
+	(for-each
+		(lambda (PAIR-A)
+			(monitor-rate #f)
+			(set! accum-cnt (+ accum-cnt
+				(CLIQUE LLOBJ CLS PAIR-A accumulate-count)))
+		)
+		(LLOBJ 'right-stars WA))
+
+	; Create MemberLinks. Do this before the connector-merge step,
+	; as they are examined during that phase.
+	(define memb-a (MemberLink WA CLS))
+
+	; Track the number of observations moved from WA to the class.
+	(define old-cnt (get-count memb-a))
+	(set-count memb-a (+ old-cnt accum-cnt))
+	(store-atom memb-a)
+
+	(monitor-rate
+		"------ Assign: Merged ~A sections in ~5F secs; ~6F scts/sec\n")
+)
+
+; ---------------------------------------------------------------------
+
+(define (merge-connectors LLOBJ CLS WA CLIQUE)
+"
+  merge-connectors LLOBJ CLS WA CLIQUE --
+
+  Loop over the disjuncts on WA, and call CLIQUE on each,
+  passing CLS and the disjunct to it.
+
+  A MemberLink from WA to CLS will be created, holding the
+  accumulated count returned by CLIQUE.
+
+  LLOBJ is used to access pairs.
+  WA should be of `(LLOBJ 'left-type)`
+  CLS should be interpretable as a row in LLOBJ.
+
+  CLIQUE is a function that returns how much of a given disjunct
+     is merged.
+
+  The merger of row WA into CLS is performed, using the CLIQUE
+  function to make disjunct-by-disjunct merge decisions.
+
+  Accumulated row totals are stored in the MemberLink that attaches
+  WA to CLS.
+
+  This assumes that storage is connected; the updated counts are written
+  to storage.
+"
+	; set-count ATOM CNT - Set the raw observational count on ATOM.
+	; XXX FIXME there should be a set-count on the LLOBJ...
+	; Strange but true, there is no setter, currently!
+	(define (set-count ATOM CNT) (cog-set-tv! ATOM (CountTruthValue 1 0 CNT)))
+
+	(define monitor-rate (make-rate-monitor))
+
+	; XXX FIXME Can we get rid of the FRAC?
+
+	; SECT ends up being PAIR-A in the loop below.
+	; MRGECT is the matching merger section
+	(define (reshape OBJ MRGECT SECT FRAC)
+		(reshape-merge OBJ CLS MRGECT WA SECT FRAC)
+	)
+
+	(for-each
+		(lambda (PAIR-A)
+			(monitor-rate #f)
+			(CLIQUE LLOBJ CLS PAIR-A reshape)
+		)
+		(LLOBJ 'right-stars WA))
+
+	(monitor-rate
+			"------ Assign: Revised ~A shapes in ~5F secs; ~6F scts/sec\n")
+
+	(set! monitor-rate (make-rate-monitor))
+	(monitor-rate #f)
+)
+
+; ---------------------------------------------------------------------
+
+; XXX TODO this should not be exported, not really.
 (define-public (start-cluster LLOBJ CLS WA WB FRAC-FN NOISE MRG-CON)
 "
   start-cluster LLOBJ CLS WA WB FRAC-FN NOISE MRG-CON --
@@ -282,9 +429,7 @@
      the fraction of a non-shared count to be used.
      Returning 1.0 gives the sum of the union of supports;
      Returning 0.0 gives the sum of the intersection of supports.
-  NOISE is the smallest observation count, below which counts will
-     not be divided up, when the merge is performed. (All of the
-     count will be merged, when it is less than NOISE)
+
   MRG-CON boolean flag; if #t then connectors will be merged.
 
   The merger of rows WA and WB are performed, using the 'projection
@@ -301,134 +446,37 @@
   This assumes that storage is connected; the updated counts are written
   to storage.
 "
-	; set-count ATOM CNT - Set the raw observational count on ATOM.
-	; XXX FIXME there should be a set-count on the LLOBJ...
-	; Strange but true, there is no setter, currently!
-	(define (set-count ATOM CNT) (cog-set-tv! ATOM (CountTruthValue 1 0 CNT)))
-
-	(define monitor-rate (make-rate-monitor))
-
-	; Create MemberLinks. We need these early, for decision-making
-	; during the merge.
-	(define ma (MemberLink WA CLS))
-	(define mb (MemberLink WB CLS))
-
-	; Accumulated counts for the two MemberLinks.
-	(define accum-acnt 0)
-	(define accum-bcnt 0)
-
 	; Fraction of non-overlapping disjuncts to merge
 	(define frac-to-merge (FRAC-FN WA WB))
 
-	; Use the tuple-math object to provide a pair of rows that
-	; are aligned with one-another.
-	(define (bogus a b) (format #t "Its ~A and ~A\n" a b))
-	(define ptu (add-tuple-math LLOBJ bogus))
-
-	; A list of pairs of sections to merge.
-	; This is a list of pairs of columns from LLOBJ, where either
-	; one or the other or both rows have non-zero elements in them.
-	(define perls (ptu 'right-stars (list WA WB)))
-
-	; Loop over the sections above, merging them into one cluster.
-	(for-each
-		(lambda (PRL)
-			(define PAIR-A (first PRL))
-			(define PAIR-B (second PRL))
-
-			(define null-a (null? PAIR-A))
-			(define null-b (null? PAIR-B))
-
-			; The target into which to accumulate counts. This is
-			; an entry in the same column that PAIR-A and PAIR-B
-			; are in. (TODO maybe we could check that both PAIR-A
-			; and PAIR-B are in the same column.)
-			(define col (if null-a
-					(LLOBJ 'right-element PAIR-B)
-					(LLOBJ 'right-element PAIR-A)))
-
-			; The place where the merge counts should be written
-			(define mrg (LLOBJ 'make-pair CLS col))
-
-			(define (do-acc CNT W PR WEI)
-				(set! CNT (+ CNT
-					(accumulate-count LLOBJ mrg PR WEI NOISE))))
-
-			; Now perform the merge. Overlapping entries are
-			; completely merged (frac=1.0). Non-overlapping ones
-			; contribute only FRAC.
-			(monitor-rate #f)
-			(cond
-				(null-a (do-acc accum-bcnt WB PAIR-B frac-to-merge))
-				(null-b (do-acc accum-acnt WA PAIR-A frac-to-merge))
-				(else ; AKA (not (or null-a null-b))
-					(begin
-						(do-acc accum-acnt WA PAIR-A 1.0)
-						(do-acc accum-bcnt WB PAIR-B 1.0)))))
-		perls)
-
-	(monitor-rate
-		"------ Create: Merged ~A sections in ~5F secs; ~6F scts/sec\n")
-
-	; If merging connectors, then make a second pass. We can't do this
-	; in the first pass, because the connector-merge logic needs to
-	; manipulate the merged Sections. (There's no obvious way to do
-	; this in a single pass; I tried.)
-	(when MRG-CON
-
-	(set! monitor-rate (make-rate-monitor))
-	(for-each
-		(lambda (PRL)
-			(define PAIR-A (first PRL))
-			(define PAIR-B (second PRL))
-
-			(define null-a (null? PAIR-A))
-			(define null-b (null? PAIR-B))
-
-			; The target into which to accumulate counts. This is
-			; an entry in the same column that PAIR-A and PAIR-B
-			; are in. (TODO maybe we could check that both PAIR-A
-			; and PAIR-B are in the same column.)
-			(define col (if null-a
-					(LLOBJ 'right-element PAIR-B)
-					(LLOBJ 'right-element PAIR-A)))
-
-			; The place where the merge counts should be written
-			(define mrg (LLOBJ 'make-pair CLS col))
-
-			(define (do-acc CNT W PR WEI)
-				(reshape-merge LLOBJ CLS mrg W PR WEI NOISE))
-
-			; Now perform the merge. Overlapping entries are
-			; completely merged (frac=1.0). Non-overlapping ones
-			; contribute only FRAC.
-			(monitor-rate #f)
-			(cond
-				(null-a (do-acc accum-bcnt WB PAIR-B frac-to-merge))
-				(null-b (do-acc accum-acnt WA PAIR-A frac-to-merge))
-				(else ; AKA (not (or null-a null-b))
-					(begin
-						(do-acc accum-acnt WA PAIR-A 1.0)
-						(do-acc accum-bcnt WB PAIR-B 1.0)))))
-		perls)
-	(monitor-rate
-		"------ Create: Revised ~A shapes in ~5F secs; ~6F scts/sec\n")
+	; CLUST is identical to CLS, always.
+	(define (clique LLOBJ CLUST SECT ACC-FUN)
+		(define WRD (LLOBJ 'left-element SECT))
+		(define DJ (LLOBJ 'right-element SECT))
+		(define WOTHER (if (equal? WRD WA) WB WA))
+		(define OTHSEC (LLOBJ 'get-pair WOTHER DJ))
+		(if (nil? OTHSEC)
+			(if (<= (LLOBJ 'get-count SECT) NOISE)
+				(ACC-FUN LLOBJ (LLOBJ 'make-pair CLUST DJ) SECT 1.0)
+				(if (< 0 frac-to-merge)
+					(ACC-FUN LLOBJ (LLOBJ 'make-pair CLUST DJ) SECT frac-to-merge)))
+			(ACC-FUN LLOBJ (LLOBJ 'make-pair CLUST DJ) SECT 1.0)
+		)
 	)
 
-	(set! monitor-rate (make-rate-monitor))
-	(monitor-rate #f)
+	(assign-to-cluster LLOBJ CLS WA clique)
+	(assign-to-cluster LLOBJ CLS WB clique)
 
-	; Track the number of observations moved from the two items
-	; into the combined class. This tracks the individual
-	; contributions.
-	(set-count ma accum-acnt)
-	(set-count mb accum-bcnt)
-
-	; Store the counts on the MemberLinks.
-	(store-atom ma)
-	(store-atom mb)
+	(when MRG-CON
+		(merge-connectors LLOBJ CLS WA clique)
+		(merge-connectors LLOBJ CLS WB clique)
+	)
 
 	; Cleanup after merging.
+	; The LLOBJ is assumed to be just a stars object, and so the
+	; intent of this clobber is to force it to recompute it's left
+	; and right basis.
+	(define e (make-elapsed-secs))
 	(LLOBJ 'clobber)
 	(remove-empty-sections LLOBJ WA)
 	(remove-empty-sections LLOBJ WB)
@@ -437,20 +485,21 @@
 	; Clobber the left and right caches; the cog-delete! changed things.
 	(LLOBJ 'clobber)
 
-	(monitor-rate
-		"------ Create: cleanup ~A in ~5F secs; ~6F ops/sec\n")
+	(format #t "------ StartCluster: Cleanup ~A in ~5F secs\n"
+		(cog-name CLS) (e))
 )
 
 ; ---------------------------------------------------------------------
 
+; XXX TODO this should not be exported, not really.
 (define-public (merge-into-cluster LLOBJ CLS WA FRAC-FN NOISE MRG-CON)
 "
-  merge-into-cluster LLOBJ CLS WA FRAC-FN NOISE MRG-CON --
+  merge-into-cluster LLOBJ CLS WA FRAC-FN MRG-CON --
      Merge WA into cluster CLS. These are two rows in LLOBJ,
-     the merge is done column-by-column. A memberLink from
+     the merge is done column-by-column. A MemberLink from
      WA to CLS will be created.
 
-  See start-cluster for addtional details.
+  See start-cluster for additional details.
 
   LLOBJ is used to access pairs.
   WA should be of `(LLOBJ 'left-type)`
@@ -461,9 +510,6 @@
      the fraction of a non-shared count to be used.
      Returning 1.0 gives the sum of the union of supports;
      Returning 0.0 gives the sum of the intersection of supports.
-  NOISE is the smallest observation count, below which counts will
-     not be divided up, when the merge is performed. (All of the
-     count will be merged, when it is less than NOISE)
   MRG-CON boolean flag; if #t then connectors will be merged.
 
   The merger of row WA into CLS is performed, using the 'projection
@@ -479,119 +525,34 @@
   This assumes that storage is connected; the updated counts are written
   to storage.
 "
-	; set-count ATOM CNT - Set the raw observational count on ATOM.
-	; XXX FIXME there should be a set-count on the LLOBJ...
-	; Strange but true, there is no setter, currently!
-	(define (set-count ATOM CNT) (cog-set-tv! ATOM (CountTruthValue 1 0 CNT)))
-
-	; Create the MemberLink. We need this early, for decision-making
-	; during the merge.
-	(define ma (MemberLink WA CLS))
-
-	; Accumulated count on the MemberLink.
-	(define accum-cnt 0)
-
 	; Fraction of non-overlapping disjuncts to merge
 	(define frac-to-merge (FRAC-FN CLS WA))
 
-	; Use the tuple-math object to provide a pair of rows that
-	; are aligned with one-another.
-	(define (bogus a b) (format #t "Its ~A and ~A\n" a b))
-	(define ptu (add-tuple-math LLOBJ bogus))
-
-	(define monitor-rate (make-rate-monitor))
-
-	; A list of pairs of sections to merge.
-	; This is a list of pairs of columns from LLOBJ, where either
-	; one or the other or both rows have non-zero elements in them.
-	(define perls (ptu 'right-stars (list CLS WA)))
-
-	; Caution: there's a "feature" bug in projection merging when used
-	; with connector merging. The code below will create sections with
-	; dangling connectors that may be unwanted. Easiest to explain by
-	; example. Consider a section (f, abe) being merged into a cluster
-	; {e,j} to form a cluster {e,j,f}. The code below will create a
-	; section ({ej}, abe) as the C-section, and transfer some counts
-	; to it. But, when connector merging is desired, it should have gone
-	; to ({ej}, ab{ej}). There are two possible solutions: have the
-	; connector merging try to detect this, and clean it up, or have
-	; the tuple object pair up (f, abe) to ({ej}, ab{ej}). There is no
-	; "natural" way for the tuple object to create this pairing (it is
-	; "naturally" linear, by design) so we must clean up during connector
-	; merging.
-	(for-each
-		(lambda (PRL)
-			(define PAIR-C (first PRL))
-			(define PAIR-A (second PRL))
-
-			(define (do-acc PRC WEI)
-				(monitor-rate #f)
-				(set! accum-cnt (+ accum-cnt
-					(accumulate-count LLOBJ PRC PAIR-A WEI NOISE))))
-
-			; There's nothing to do if A is empty.
-			(when (not (null? PAIR-A))
-
-				; Two different tasks, depending on whether PAIR-C
-				; exists or not - we merge all, or just some.
-				(if (null? PAIR-C)
-
-					; pare-c is the non-null version of PAIR-C
-					; We accumulate a fraction of PAIR-A into it.
-					(let* ((col (LLOBJ 'right-element PAIR-A))
-							(pare-c (LLOBJ 'make-pair CLS col)))
-						(do-acc pare-c frac-to-merge))
-
-					; PAIR-C exists already. Merge 100% of A into it.
-					(do-acc PAIR-C 1.0))
-			))
-		perls)
-
-	(monitor-rate
-		"------ Extend: Merged ~A sections in ~5F secs; ~6F scts/sec\n")
-
-	(when MRG-CON
-	(set! monitor-rate (make-rate-monitor))
-	(for-each
-		(lambda (PRL)
-			(define PAIR-C (first PRL))
-			(define PAIR-A (second PRL))
-
-			(define (do-acc PRC WEI)
-				(monitor-rate #f)
-				(reshape-merge LLOBJ CLS PRC WA PAIR-A WEI NOISE))
-
-			; There's nothing to do if A is empty.
-			(when (not (null? PAIR-A))
-
-				; Two different tasks, depending on whether PAIR-C
-				; exists or not - we merge all, or just some.
-				(if (null? PAIR-C)
-
-					; pare-c is the non-null version of PAIR-C
-					; We accumulate a fraction of PAIR-A into it.
-					(let* ((col (LLOBJ 'right-element PAIR-A))
-							(pare-c (LLOBJ 'make-pair CLS col)))
-						(do-acc pare-c frac-to-merge))
-
-					; PAIR-C exists already. Merge 100% of A into it.
-					(do-acc PAIR-C 1.0))
-			))
-		perls)
-
-	(monitor-rate
-		"------ Extend: Revised ~A shapes in ~5F secs; ~6F scts/sec\n")
+	; CLUST is identical to CLS, always.
+	(define (clique LLOBJ CLUST SECT ACC-FUN)
+		(define WRD (LLOBJ 'left-element SECT))
+		(define DJ (LLOBJ 'right-element SECT))
+		(define CLS-SECT (LLOBJ 'get-pair CLUST DJ))
+		(if (nil? CLS-SECT)
+			(if (<= (LLOBJ 'get-count SECT) NOISE)
+				(ACC-FUN LLOBJ (LLOBJ 'make-pair CLUST DJ) SECT 1.0)
+				(if (< 0 frac-to-merge)
+					(ACC-FUN LLOBJ (LLOBJ 'make-pair CLUST DJ) SECT frac-to-merge)))
+			(ACC-FUN LLOBJ CLS-SECT SECT 1.0)
+		)
 	)
 
-	(set! monitor-rate (make-rate-monitor))
-	(monitor-rate #f)
+	(assign-to-cluster LLOBJ CLS WA clique)
 
-	; Track the number of observations moved from WA to the class.
-	; Store the updated count.
-	(set-count ma accum-cnt)
-	(store-atom ma)
+	(when MRG-CON
+		(merge-connectors LLOBJ CLS WA clique)
+	)
 
 	; Cleanup after merging.
+	; The LLOBJ is assumed to be just a stars object, and so the
+	; intent of this clobber is to force it to recompute it's left
+	; and right basis.
+	(define e (make-elapsed-secs))
 	(LLOBJ 'clobber)
 	(remove-empty-sections LLOBJ WA)
 	(remove-empty-sections LLOBJ CLS)
@@ -599,424 +560,274 @@
 	; Clobber the left and right caches; the cog-delete! changed things.
 	(LLOBJ 'clobber)
 
-	(monitor-rate
-		"------ Extend: Cleanup ~A in ~5F secs; ~6F ops/sec\n")
+	(format #t "------ Merge-Into-Cluster: Cleanup ~A in ~5F secs\n"
+		(cog-name CLS) (e))
 )
 
-; ---------------------------------------------------------------
-; Is it OK to merge WORD-A and WORD-B into a common vector?
-;
-; Return #t if the two should be merged, else return #f
-; WORD-A might be a WordClassNode or a WordNode.
-; WORD-B should be a WordNode.
-;
-; SIM-FUNC must be a function that takes two words (or word-classes)
-; and returns the similarity between them.
-;
-; The CUTOFF is used to make the ok-to-merge decision; if the similarity
-; is greater than CUTOFF, then this returns #t else it returns #f.
-;
-; The is effectively the same as saying
-;    (< CUTOFF (SIM-FUNC WORD-A WORD-B))
-; which is only a single trivial line of code ... but ...
-; The below is a mass of print statements to show forward progress.
-; The current infrastructure is sufficiently slow, that the prints are
-; reassuring that the system is not hung.
-;
-(define (is-similar? SIM-FUNC CUTOFF WORD-A WORD-B)
+; ---------------------------------------------------------------------
 
-	(define (report-progress)
-		(let* (
-				(start-time (get-internal-real-time))
-				(sim (SIM-FUNC WORD-A WORD-B))
-				(now (get-internal-real-time))
-				(elapsed-time (* 1.0e-9 (- now start-time))))
-
-			; Only print if its time-consuming.
-			(if (< 2.0 elapsed-time)
-				(format #t "Dist=~6F for ~A \"~A\" -- \"~A\" in ~5F secs\n"
-					sim
-					(if (eq? 'WordNode (cog-type WORD-A)) "word" "class")
-					(cog-name WORD-A) (cog-name WORD-B)
-					elapsed-time))
-
-			; Print mergers.
-			(if (< CUTOFF sim)
-				(format #t "---------Bingo! Dist=~6F for ~A \"~A\" -- \"~A\"\n"
-					sim
-					(if (eq? 'WordNode (cog-type WORD-A)) "word" "class")
-					(cog-name WORD-A) (cog-name WORD-B)
-					))
-			sim))
-
-	; True, if similarity is larger than the cutoff.
-	(< CUTOFF (report-progress))
-)
-
-; ---------------------------------------------------------------
-
-(define-public (make-merger STARS MPRED FRAC-FN NOISE MIN-CNT STORE MRG-CON)
+; XXX TODO this should not be exported, not really.
+(define-public (merge-clusters LLOBJ CLA CLB MRG-CON)
 "
-  make-merger STARS MPRED FRAC-FN NOISE MIN-CNT STORE MRG-CON --
+  merge-clusters LLOBJ CLA CLB FRAC-FN MRG-CON --
+     Merge clusters CLA and CLB. These are two rows in LLOBJ,
+     the merge is done column-by-column.
+
+  This will perform a \"union merge\" -- all disjuncts on CLB will
+  be transfered to CLA, and CLB will be removed.
+
+  See start-cluster for additional details.
+"
+	; CLUST is identical to CLA, always.
+	(define (clique LLOBJ CLUST SECT ACC-FUN)
+		(define WRD (LLOBJ 'left-element SECT))
+		(define DJ (LLOBJ 'right-element SECT))
+		(define CLS-SECT (LLOBJ 'make-pair CLUST DJ))
+		(ACC-FUN LLOBJ CLS-SECT SECT 1.0)
+	)
+
+	; Merge the two clusters. Delete the spurious MemberLink!
+	(assign-to-cluster LLOBJ CLA CLB clique)
+	(cog-delete! (Member CLB CLA))
+
+	; Copy all counts from MemberLinks on CLB to CLA.
+	; Delete MemberLinks on CLB.
+	(for-each
+		(lambda (MEMB-B)
+			; Get the word
+			(define WRD (gar MEMB-B))
+
+			; Get the count
+			(define CNT-A 0)
+			(define CNT-B (LLOBJ 'get-count MEMB-B))
+
+			; Does a corresponding word exist on class A?
+			(define MEMB-A (cog-link 'MemberLink WRD CLA))
+
+			(if (not (nil? MEMB-A))
+				(set! CNT-A (LLOBJ 'get-count MEMB-A)))
+
+			; Create the MmeberLink on A, and update the count.
+			(define MBA (MemberLink WRD CLA))
+			(set-count MBA (+ CNT-A CNT-B))
+			(store-atom MBA)
+
+			; Delete the B-MemberLink.  If its not deleteable,
+			; then wipe out the count on it.
+			(if (not (cog-delete! MEMB-B))
+				(set-count MEMB-B 0))
+		)
+		(cog-incoming-by-type CLB 'MemberLink))
+
+	; Now merge connectors, if that was asked for.
+	(when MRG-CON
+		(merge-connectors LLOBJ CLA CLB clique)
+	)
+
+	; Cleanup after merging.
+	; The LLOBJ is assumed to be just a stars object, and so the
+	; intent of this clobber is to force it to recompute it's left
+	; and right basis.
+	(define e (make-elapsed-secs))
+	(LLOBJ 'clobber)
+	(remove-empty-sections LLOBJ CLA)
+	(remove-empty-sections LLOBJ CLB) ; This should remove ALL of them!
+
+	; Clobber the left and right caches; the cog-delete! changed things.
+	(LLOBJ 'clobber)
+
+	; Delete the old class... But first, let's make sure it is
+	; really is empty!  It should not appear in any sections or
+	; cross-sections!  It might appear in Connectors that are in
+	; ConnectorSeqs that are in marginals, and we cannot control
+	; that. XXX FIXME These need to be cleaned up!
+	; So check the types we can control.
+	(if (or
+			(not (equal? 0 (cog-incoming-size-by-type CLB 'Section)))
+			(not (equal? 0 (cog-incoming-size-by-type CLB 'CrossSection)))
+			(not (equal? 0 (cog-incoming-size-by-type CLB 'Shape))))
+		(throw 'non-empy-class 'merge-clusters "we expect it to be empty!"))
+
+	(cog-delete! CLB)
+
+	(format #t "------ Merge-Clusters: Cleanup ~A in ~5F secs\n"
+		(cog-name CLA) (e))
+)
+
+; ---------------------------------------------------------------
+
+; XXX TODO once make-merge-ingroup is done, this can be reimplemented
+; as a special case of that. That means that the above three functions
+; can be discarded. It also means that `gram-class-api` 'make-cluster
+; method can be discarded or refactored.
+(define-public (make-merge-pair STARS FRAC-FN NOISE STORE FIN MRG-CON)
+"
+  make-merger-pair STARS FRAC-FN NOISE STORE FIN MRG-CON --
   Return object that implements the `merge-project` merge style
   (as described at the top of this file).
 
   STARS is the object holding the disjuncts. For example, it could
   be (add-dynamic-stars (make-pseudo-cset-api))
 
-  MPRED is a predicate that takes two rows in STARS (two Atoms that are
-  left-elements, i.e. row-indicators, in STARS) and returns #t/#f i.e.
-  a yes/no value as to whether the corresponding rows in STARS should
-  be merged or not.
-
   FRAC-FUN is a function that takes two rows in STARS and returns a
   number between 0.0 and 1.0 indicating what fraction of a row to merge,
   when the corresponding matrix element in the other row is null.
 
-  NOISE is the smallest observation count, below which counts
-  will not be divided up, if a merge is performed.
-
-  MIN-CNT is the minimum count (l1-norm) of the observations of
-  disjuncts that a row is allowed to have, to even be considered for
-  merging.
+  NOISE is a floating-point numeric value indicating a count, below
+  which a merge will always be made. That is, if the count on the
+  donating section is less than this value, then that section will
+  be merged in it's entirety (ignoring the value returned by FRAC-FUN.)
 
   STORE is an extra function called, after the merge is to completed,
-  and may be used to store additional needed data that the algo here is
-  unaware of.
+  and may be used to compute and store additional needed data that
+  the algo here is unaware of. This include computation of supports,
+  marginal MI and similar. It is called with an argument of the altered
+  row.
 
-  MRG-CON is #t if Connectors should also be merged.
+  FIN is an extra function called, after the merge is to completed.
+  It is called without an argument.
 
-  This object provides the following methods:
-
-  'merge-predicate -- a wrapper around MPRED above.
-  'merge-function -- the function that actually performs the merge.
-  'discard-margin? -- Return #t if count on word is below MIN-CNT.
-                      Uses the marginal counts for this decision.
-                      Used by `trim-and-rank` to ignore this word.
-                      (`trim-and-rank` prepares the list of words to
-                      cluster.)
-  'discard? --        Same as above, but  count is recomputed, instead
-                      of being pulled from the margin. This is required
-                      when a word has been merged, as then the margin
-                      count will be stale (aka wrong, invalid). Used
-                      by `greedy-grow` to ignore the stub of a word
-                      after merging. That is, if all that remains in a
-                      word after merging is some cruft with a count less
-                      than MIN-CNT, it won't be further merged into
-                      anything; it will be ignored.
-  'clobber -- invalidate all caches.
+  MRG-CON is #t if Connectors should also be merged.  This requires
+  that the STARS object have shapes on it.
 "
-	(define pss (add-support-api STARS))
-	(define psu (add-support-compute STARS))
-
 	; Return a WordClassNode that is the result of the merge.
 	(define (merge WA WB)
-		(define single (not (eq? (STARS 'cluster-type) (cog-type WA))))
+		(define wa-is-cls (equal? (STARS 'cluster-type) (Type (cog-type WA))))
+		(define wb-is-cls (equal? (STARS 'cluster-type) (Type (cog-type WB))))
 		(define cls (STARS 'make-cluster WA WB))
 
 		; Cluster - either create a new cluster, or add to an existing
-		; one. Afterwards, need to recompute the marginals. This is so
-		; that future similarity judgements work correctly. This is
-		; because the mergers altered the counts, and so the marginals
-		; are wrong. (Well, they're wrong only for WA, WB and cls,
-		; whereas clobber clobbers everything. Oh well. Its hard.)
+		; one. Afterwards, need to recompute selected marginals. This
+		; is required so that future similarity judgements work correctly.
+		; The mergers altered the counts, and so the marginals on
+		; those words and disjuncts are wrong. Specifically, they're
+		; wrong only for WA, WB and cls. Here, we'll just recompute the
+		; most basic support for WA, WB and cls and thier disjuncts.
+		; The MI similarity also needs MM^T to be recomputed; the STORE
+		; callback provides an opporunity to do that.
 		; The results are stored, so that everything is on disk in
-		; of a restart.
+		; case of a restart.
 		; Clobber first, since Sections were probably deleted.
-		(if single
-			(begin
-				(start-cluster psu cls WA WB FRAC-FN NOISE MRG-CON)
-				(psu 'clobber)
-				(store-atom (psu 'set-right-marginals cls))
-				(STORE cls)
-			)
-			(begin
-				(merge-into-cluster psu WA WB FRAC-FN NOISE MRG-CON)
-				(psu 'clobber)
-			))
-
-		(store-atom (psu 'set-right-marginals WA))
-		(store-atom (psu 'set-right-marginals WB))
+		(cond
+			((and wa-is-cls wb-is-cls)
+				(merge-clusters STARS WA WB MRG-CON))
+			((and (not wa-is-cls) (not wb-is-cls))
+				(begin
+					(start-cluster STARS cls WA WB FRAC-FN NOISE MRG-CON)
+					(STORE cls)))
+			(wa-is-cls
+				(merge-into-cluster STARS WA WB FRAC-FN NOISE MRG-CON))
+			(wb-is-cls
+				(merge-into-cluster STARS WB WA FRAC-FN NOISE MRG-CON))
+		)
 
 		(STORE WA)
 		(STORE WB)
+		(FIN)
+		cls
+	)
+
+	; Return the above function
+	merge
+)
+
+; ---------------------------------------------------------------
+
+(define-public (make-merge-ingroup LLOBJ QUORUM MRG-CON)
+"
+  make-merger-ingroup LLOBJ QUORUM MRG-CON --
+  Return a function that will merge a list of words into one class.
+  The disjuncts that are selected to be merged are those shared by
+  the majority of the given words, where `majority` is defined as
+  a fraction that is greater or equal to QUORUM.
+
+  LLOBJ is the object holding the disjuncts. For example, it could
+  be (add-dynamic-stars (make-pseudo-cset-api))
+
+  QUORUM is a floating point number indicating the fraction of
+  sections that must share a given disjunct, before that disjunct is
+  merged into the cluster.
+
+  MRG-CON is #t if Connectors should also be merged.  This requires
+  that the LLOBJ object have shapes on it.
+"
+	; WLIST is a list of WordNodes and/or WordClassNodes
+	; Return a WordClassNode that is the result of the merge.
+	(define (merge WLIST)
+		(for-each
+			(lambda (WRD)
+				(if (equal? (cog-type WRD) 'WordClassNode)
+					(throw 'not-implemented 'make-merge-ingroup
+						"Not done yet")))
+			WLIST)
+
+		; The minimum number of sections that must exist for
+		; a given disjunct.
+		(define vote-thresh
+			(inexact->exact (round (* QUORUM (length WLIST)))))
+
+		; Return #t if the DJ is shared by the majority of the
+		; sections. Does the count exceed the threshold?
+		(define (vote-to-accept? DJ)
+			(<= vote-thresh
+				(fold
+					(lambda (WRD CNT)
+						(if (nil? (LLOBJ 'get-pair WRD DJ)) 0 1))
+					0
+					WLIST)))
+
+		; Merge the particular DJ, if it is shared by the majority.
+		; CLUST is identical to cls, defined below. Return zero if
+		; there is no merge.
+		(define (clique LLOBJ CLUST SECT ACC-FUN)
+			(define DJ (LLOBJ 'right-element SECT))
+
+			(if (vote-to-accept? DJ)
+				(ACC-FUN LLOBJ (LLOBJ 'make-pair CLUST DJ)  SECT 1.0)
+				0))
+
+		; We are going to control the name we give it. We could also
+		; delegate this to `add-gram-class-api`, but for now, we're
+		; going to punt and do it here. Some day, in a generic framework,
+		; this will need to be cleaned up.
+		(define cls-name (string-join (map cog-name WLIST)))
+		(define cls-type (LLOBJ 'cluster-type))
+		(define cls-typname
+			(if (cog-atom? cls-type) (cog-name cls-type) cls-type))
+		(define cls (cog-new-node cls-typname cls-name))
+
+		(for-each
+			(lambda (WRD) (assign-to-cluster LLOBJ cls WRD clique))
+			WLIST)
+
+		(when MRG-CON
+			(for-each
+				(lambda (WRD) (merge-connectors LLOBJ cls WRD clique))
+				WLIST)
+		)
+
+		; Cleanup after merging.
+		; The LLOBJ is assumed to be just a stars object, and so the
+		; intent of this clobber is to force it to recompute it's left
+		; and right basis.
+		(define e (make-elapsed-secs))
+		(LLOBJ 'clobber)
+		(for-each
+			(lambda (WRD) (remove-empty-sections LLOBJ WRD))
+			WLIST)
+		(remove-empty-sections LLOBJ cls)
+
+		; Clobber the left and right caches; the cog-delete! changed things.
+		(LLOBJ 'clobber)
+
+		(format #t "------ merge-ingroup: Cleanup ~A in ~5F secs\n"
+			(cog-name cls) (e))
 
 		cls
 	)
 
-	(define (is-small-margin? WORD)
-		(< (pss 'right-count WORD) MIN-CNT))
-
-	(define (is-small? WORD)
-		(< (psu 'right-count WORD) MIN-CNT))
-
-	; ------------------
-	; Methods on this class.
-	(lambda (message . args)
-		(case message
-			((merge-predicate)  (apply MPRED args))
-			((merge-function)   (apply merge args))
-			((discard-margin?)  (apply is-small-margin? args))
-			((discard?)         (apply is-small? args))
-			((clobber)          (begin (STARS 'clobber) (psu 'clobber)))
-			(else               (apply STARS (cons message args)))
-		))
-)
-
-; ---------------------------------------------------------------
-
-(define-public (make-fuzz STARS CUTOFF UNION-FRAC NOISE MIN-CNT)
-"
-  make-fuzz -- Do a cosine-distance projection-merge, with a fixed
-               union-merge fraction.
-
-  Uses the `merge-project` merge style. This implements a fixed
-  linear interpolation between overlap-merge and union merge. Recall
-  that the overlap-merge merges all disjuncts that the two parts have
-  in common, while the nion merge merges all disjuncts.
-
-  STARS is the object holding the disjuncts. For example, it could
-  be (add-dynamic-stars (make-pseudo-cset-api))
-
-  CUTOFF is the min acceptable cosine, for words to be considered
-  mergable.
-
-  UNION-FRAC is the fixed fraction of the union-set of the disjuncts
-  that will be merged.
-
-  NOISE is the smallest observation count, below which counts
-  will not be divided up, if a marge is performed.
-
-  MIN-CNT is the minimum count (l1-norm) of the observations of
-  disjuncts that a word is allowed to have, to even be considered.
-"
-	(define pcos (add-similarity-compute STARS))
-	(define (get-cosine wa wb) (pcos 'right-cosine wa wb))
-	(define (mpred WORD-A WORD-B)
-		(is-similar? get-cosine CUTOFF WORD-A WORD-B))
-
-	(define (fixed-frac WA WB) UNION-FRAC)
-
-	(make-merger STARS mpred fixed-frac NOISE MIN-CNT (lambda (x) #f) #t)
-)
-
-; ---------------------------------------------------------------
-
-(define-public (make-discrim STARS CUTOFF NOISE MIN-CNT)
-"
-  make-discrim -- Do a \"discriminating\" merge. When a word is to be
-  merged into a word class, the fraction to be merged will depend on
-  the cosine angle between the two. Effectively, there is a sigmoid
-  taper between the union-merge and the intersection-merge. The more
-  similar they are, the more of a union merge; the less similar the
-  more of an intersection merge.
-
-  The idea is that if two words are highly similar, they really should
-  be taken together. If they are only kind-of similar, then maybe one
-  word has multiple senses, and we only want to merge the fraction that
-  shares a common word-sense, and leave the other word-sense out of it.
-
-  Uses the `merge-discrim` merge style; the merge fraction is a sigmoid
-  taper.
-
-  STARS is the object holding the disjuncts. For example, it could
-  be (add-dynamic-stars (make-pseudo-cset-api))
-
-  CUTOFF is the min acceptable cosine, for words to be considered
-  mergable.
-
-  NOISE is the smallest observation count, below which counts
-  will not be divided up, if a merge is performed.
-
-  MIN-CNT is the minimum count (l1-norm) of the observations of
-  disjuncts that a word is allowed to have, to even be considered.
-"
-	(define pcos (add-similarity-compute STARS))
-	(define (get-cosine wa wb) (pcos 'right-cosine wa wb))
-	(define (mpred WORD-A WORD-B)
-		(is-similar? get-cosine CUTOFF WORD-A WORD-B))
-
-	; The fractional amount to merge will be proportional
-	; to the cosine between them. The more similar they are,
-	; the more they are merged together.
-	(define (cos-fraction WA WB)
-		(define cosi (pcos 'right-cosine WA WB))
-		(/ (- cosi CUTOFF)  (- 1.0 CUTOFF)))
-
-	(make-merger STARS mpred cos-fraction NOISE MIN-CNT (lambda (x) #f) #t)
-)
-
-; ---------------------------------------------------------------
-
-(define-public (make-mifuzz STARS CUTOFF UNION-FRAC NOISE MIN-CNT)
-"
-  make-mifuzz -- Do mutual-information projection-merge, with a fixed
-                 union-merge fraction.
-
-  Uses the `merge-project` merge style. This implements a fixed
-  linear interpolation between overlap-merge and union merge. Recall
-  that the overlap-merge merges all disjuncts that the two parts have
-  in common, while the union merge merges all disjuncts.
-
-  STARS is the object holding the disjuncts. For example, it could
-  be (add-dynamic-stars (make-pseudo-cset-api))
-
-  CUTOFF is the min acceptable MI, for words to be considered
-  mergable.
-
-  UNION-FRAC is the fixed fraction of the union-set of the disjuncts
-  that will be merged.
-
-  NOISE is the smallest observation count, below which counts
-  will not be divided up, if a marge is performed.
-
-  MIN-CNT is the minimum count (l1-norm) of the observations of
-  disjuncts that a word is allowed to have, to even be considered.
-"
-	(define pmi (add-symmetric-mi-compute STARS))
-	(define ptc (add-transpose-compute STARS))
-
-	(define (get-mi wa wb) (pmi 'mmt-fmi wa wb))
-	(define (mpred WORD-A WORD-B)
-		(is-similar? get-mi CUTOFF WORD-A WORD-B))
-
-	; The fraction to merge is fixed.
-	(define (mi-fract WA WB) UNION-FRAC)
-
-	(define (store-mmt row)
-		(store-atom (ptc 'set-mmt-marginals row)))
-
-	(make-merger pmi mpred mi-fract NOISE MIN-CNT store-mmt #t)
-)
-
-; ---------------------------------------------------------------
-
-(define-public (make-midisc STARS CUTOFF NOISE MIN-CNT)
-"
-  make-midisc -- Do mutual-information projection-merge, with a
-                 tapered union-merge fraction.
-
-  Uses the `merge-project` merge style. This adds a very small amount
-  of the union-merge to the overlap-merge.  Recall that the
-  overlap-merge merges all disjuncts that the two parts have in
-  common, while the union merge merges all disjuncts.
-
-  The tapering uses a merge fraction of
-      1/2**(max(MI(a,a), MI(b,b))-CUTOFF)
-  where MI(a,a) and MI(b,b) is the self-mutual information of the two
-  items a and b to be merged.  This merge fraction is chosen such that,
-  very roughly, the MI between the cluster, and the remainder of a and b
-  after merging will be less than CUTOFF ... roughly. The formula is
-  an inexact guesstimate. This could be improved.
-
-  STARS is the object holding the disjuncts. For example, it could
-  be (add-dynamic-stars (make-pseudo-cset-api))
-
-  CUTOFF is the min acceptable MI, for words to be considered
-  mergable.
-
-  NOISE is the smallest observation count, below which counts
-  will not be divided up, if a marge is performed.
-
-  MIN-CNT is the minimum count (l1-norm) of the observations of
-  disjuncts that a word is allowed to have, to even be considered.
-"
-	(define pss (add-support-api STARS))
-	(define pmi (add-symmetric-mi-compute STARS))
-	(define pti (add-transpose-api STARS))
-	(define ptc (add-transpose-compute STARS))
-
-	(define (get-mi wa wb) (pmi 'mmt-fmi wa wb))
-	(define (mpred WORD-A WORD-B)
-		(is-similar? get-mi CUTOFF WORD-A WORD-B))
-
-	(define total-mmt-count (pti 'total-mmt-count))
-	(define ol2 (/ 1.0 (log 2.0)))
-	(define (log2 x) (* (log x) ol2))
-
-	; The self-MI is just the same as (get-mi wrd wrd).
-	; The below is faster than calling `get-mi`; it uses
-	; cached values. Still, it would be better if we
-	; stored a cached self-mi value.
-	(define (get-self-mi wrd)
-		(define len (pss 'right-length wrd))
-		(define mmt (pti 'mmt-count wrd))
-		(log2 (/ (* len len total-mmt-count) (* mmt mmt))))
-
-	; The fraction to merge is a ballpark estimate that attempts
-	; to make sure that the MI between the new cluster and the
-	; excluded bits is less than the cutoff.
-	(define (mi-fraction WA WB)
-		(define mihi (max (get-self-mi WA) (get-self-mi WB)))
-		(expt 2.0 (- CUTOFF mihi)))
-
-	(define (store-mmt row)
-		(store-atom (ptc 'set-mmt-marginals row)))
-
-	(make-merger pmi mpred mi-fraction NOISE MIN-CNT store-mmt #t)
-)
-
-; ---------------------------------------------------------------
-
-(define-public (make-disinfo STARS CUTOFF NOISE MIN-CNT)
-"
-  make-disinfo -- Do a \"discriminating\" merge, using MI for
-  similarity.
-
-  Deprecated. Based on diary results, this appears to give poor results.
-  Suggest using either `make-mifuzz` with a zero or a very small union
-  frac, or to use  `make-midisc`.
-
-  Use `merge-project` style merging, with linear taper of the union-merge.
-  This is the same as `merge-discrim` above, but using MI instead
-  of cosine similarity.
-
-  STARS is the object holding the disjuncts. For example, it could
-  be (add-dynamic-stars (make-pseudo-cset-api))
-
-  CUTOFF is the min acceptable MI, for words to be considered
-  mergable.
-
-  NOISE is the smallest observation count, below which counts
-  will not be divided up, if a merge is performed.
-
-  MIN-CNT is the minimum count (l1-norm) of the observations of
-  disjuncts that a word is allowed to have, to even be considered.
-"
-	(define pss (add-support-api STARS))
-	(define pmi (add-symmetric-mi-compute STARS))
-	(define pti (add-transpose-api STARS))
-	(define ptc (add-transpose-compute STARS))
-
-	(define (get-mi wa wb) (pmi 'mmt-fmi wa wb))
-	(define (mpred WORD-A WORD-B)
-		(is-similar? get-mi CUTOFF WORD-A WORD-B))
-
-	(define total-mmt-count (pti 'total-mmt-count))
-	(define ol2 (/ 1.0 (log 2.0)))
-	(define (log2 x) (* (log x) ol2))
-
-	; The self-MI is just the same as (get-mi wrd wrd).
-	; The below is faster than calling `get-mi`; it uses
-	; cached values. Still, it would be better if we
-	; stored a cached self-mi value.
-	(define (get-self-mi wrd)
-		(define len (pss 'right-length wrd))
-		(define mmt (pti 'mmt-count wrd))
-		(log2 (/ (* len len total-mmt-count) (* mmt mmt))))
-
-	; The fraction to merge is a linear ramp, starting at zero
-	; at the cutoff, and ramping up to one when these are very
-	; similar.
-	(define (mi-fraction WA WB)
-		(define milo (min (get-self-mi WA) (get-self-mi WB)))
-		(define fmi (get-mi WA WB))
-		(/ (- fmi CUTOFF) (- milo CUTOFF)))
-
-	(define (store-mmt row)
-		(store-atom (ptc 'set-mmt-marginals row)))
-
-	(make-merger pmi mpred mi-fraction NOISE MIN-CNT store-mmt #t)
+	; Return the above function
+	merge
 )
 
 ; ---------------------------------------------------------------

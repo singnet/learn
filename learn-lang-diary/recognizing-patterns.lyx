@@ -1,0 +1,2733 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass beamer
+\begin_preamble
+\usepackage{url} 
+\usepackage{slashed}
+\end_preamble
+\use_default_options false
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding utf8
+\fontencoding global
+\font_roman "times" "default"
+\font_sans "helvet" "default"
+\font_typewriter "cmtt" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures false
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref true
+\pdf_bookmarks true
+\pdf_bookmarksnumbered false
+\pdf_bookmarksopen false
+\pdf_bookmarksopenlevel 1
+\pdf_breaklinks true
+\pdf_pdfborder true
+\pdf_colorlinks true
+\pdf_backref false
+\pdf_pdfusetitle true
+\papersize default
+\use_geometry true
+\use_package amsmath 2
+\use_package amssymb 2
+\use_package cancel 1
+\use_package esint 0
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 0
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 0
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Keynote talk for AGI-21:SF Bay Area and Virtual
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Title
+Explainable Patterns
+\end_layout
+
+\begin_layout Subtitle
+Unsupervised Learning of Symbolic Representations
+\end_layout
+
+\begin_layout Author
+Linas Vepštas
+\end_layout
+
+\begin_layout Date
+Interpretable Language Processing (INLP) – AGI–21
+\end_layout
+
+\begin_layout Institute
+15-18 October 2021
+\end_layout
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Introduction – Outrageous Claims
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+Old but active issues with symbolic knowledge in AI:
+\end_layout
+
+\begin_layout Itemize
+Solving the Frame Problem
+\end_layout
+
+\begin_layout Itemize
+Solving the Symbol Grounding Problem
+\end_layout
+
+\begin_layout Itemize
+Learning Common Sense
+\end_layout
+
+\begin_layout Itemize
+Learning how to Reason
+\end_layout
+
+\begin_layout Standard
+A new issue:
+\end_layout
+
+\begin_layout Itemize
+Explainable AI, understandable (transparent) reasoning.
+\end_layout
+
+\begin_layout Standard
+It's not (just) about Linguistics, its about about Understanding
+\end_layout
+
+\begin_layout Standard
+Symbolic AI can (still) be a viable alternative to Neural Nets!
+\end_layout
+
+\end_deeper
+\begin_layout Frame
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\align center
+
+\size larger
+You've heard it before.
+ Nothing new here...
+\end_layout
+
+\begin_layout Standard
+\align center
+
+\shape italic
+\size larger
+...
+ Wait, what?
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Everything is a (Sparse) Graph
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+The Universe is a sparse graph of relationships.
+\end_layout
+
+\begin_layout Frame
+Sparse graphs are (necessarily) symbolic!
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\begin_inset Graphics
+	filename reco-image/non-sparse.eps
+	width 40col%
+
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset Graphics
+	filename reco-image/sparse-labelled.eps
+	width 40col%
+
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Frame
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+Not sparse.................................Sparse!
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Edges are necessarily labeled by the vertexes they connect!
+\end_layout
+
+\begin_layout Frame
+Labels are necessarily symbolic!
+\end_layout
+
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Graphs are Decomposable
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Graphs can be decomposed into interchangeable parts.
+\end_layout
+
+\begin_layout Frame
+Half-edges resemble jigsaw puzzle connectors.
+\end_layout
+
+\begin_layout Frame
+\begin_inset VSpace smallskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Graphics
+	filename reco-image/sparse-cut.eps
+	width 80col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Graphs are syntactically valid if connectors match up.
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Labeled graphs (implicitly) define a syntax!
+\end_layout
+
+\begin_layout Itemize
+Syntax == allowed relationships between 
+\begin_inset Quotes eld
+\end_inset
+
+things
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Graphs are Compositional
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Example: Terms and variables (Term Algebra)
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+A term: 
+\begin_inset Formula $f\left(x\right)$
+\end_inset
+
+ or an 
+\begin_inset Formula $n$
+\end_inset
+
+-ary function symbol: 
+\begin_inset Formula $f\left(x_{1},x_{2},\cdots,x_{n}\right)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+A variable: 
+\begin_inset Formula $x$
+\end_inset
+
+ or maybe more: 
+\begin_inset Formula $x,y,z,\cdots$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+A constant: 42 or 
+\begin_inset Quotes eld
+\end_inset
+
+foobar
+\begin_inset Quotes erd
+\end_inset
+
+ or other type instance
+\end_layout
+
+\begin_layout Itemize
+Plug it in (beta-reduction): 
+\begin_inset Formula $f\left(x\right):42\mapsto f\left(42\right)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Quotes eld
+\end_inset
+
+Call function 
+\begin_inset Formula $f$
+\end_inset
+
+ with argument of 42
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Jigsaw puzzle connectors:
+\end_layout
+
+\end_deeper
+\begin_layout Frame
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset Graphics
+	filename reco-image/puzzle.eps
+	lyxscale 50
+	width 30col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Connectors are (Type Theory) Types.
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Matching may be multi-polar, complicated, not just bipolar.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Examples from Category Theory
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Lexical jigsaw connectors are everywhere!
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Compositionality in anything tensor-like:
+\end_layout
+
+\end_deeper
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Tabular
+<lyxtabular version="3" rows="4" columns="2">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size footnotesize
+Cobordism
+\size default
+
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+
+\size footnotesize
+John Baez, Mike Stay (2009) 
+\begin_inset Quotes eld
+\end_inset
+
+Physics, Topology, Logic and Computation: A Rosetta Stone
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size footnotesize
+Quantum Grammar
+\size default
+
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+
+\size footnotesize
+William Zeng and Bob Coecke (2016) 
+\begin_inset Quotes eld
+\end_inset
+
+Quantum Algorithms for Compositional Natural Language Processing
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="3" alignment="center" valignment="middle" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename reco-image/cobordism.png
+	lyxscale 30
+	width 42col%
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset VSpace 10col%
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="4" alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="3" alignment="center" valignment="middle" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename reco-image/quantum.png
+	lyxscale 30
+	width 42col%
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="4" alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset VSpace 10col%
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Examples from Chemistry, Botany
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Lexical Compositionality in chemical reactions.
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+Generative L-systems explain biological morphology!
+\end_layout
+
+\begin_layout Frame
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Tabular
+<lyxtabular version="3" rows="4" columns="2">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Krebs Cycle
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Algorithmic Botany
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+Przemyslaw Prusinkiewicz, etal.
+ (2018) 
+\begin_inset Quotes eld
+\end_inset
+
+Modeling plant development with L-systems
+\begin_inset Quotes erd
+\end_inset
+
+ – http://algorithmicbotany.org 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="3" alignment="center" valignment="middle" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename reco-image/citric-acid-cycle.png
+	lyxscale 50
+	width 37col%
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset VSpace 10col%
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="4" alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="3" alignment="center" valignment="middle" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename reco-image/Prusinkiewicz.png
+	lyxscale 50
+	width 45col%
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="4" alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset VSpace 10col%
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Link Grammar
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Link Grammar as a Lexical Grammar
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+Daniel D.
+ K.
+ Sleator, Davy Temperley (1991) 
+\begin_inset Quotes eld
+\end_inset
+
+Parsing English with a Link Grammar
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Graphics
+	filename reco-image/link-grammar.png
+	lyxscale 60
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Graphics
+	filename skimage/parse.ps
+	lyxscale 200
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Can be (algorithmically) converted to HPSG, DG, CG, FG, ...
+\end_layout
+
+\begin_layout Frame
+Full dictionaries for English, Russian.
+\end_layout
+
+\begin_layout Frame
+Demos for Farsi, Indonesian, Vietnamese, German & more.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Vision
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Shapes have a structural grammar.
+\end_layout
+
+\begin_layout Frame
+The connectors can specify location, color, shape, texture.
+\end_layout
+
+\begin_layout Frame
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Graphics
+	filename reco-image/traffic-lights.jpg
+	width 20col%
+
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset Graphics
+	filename reco-image/traffic-light-grammar.eps
+	width 70col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+A key point: 
+\emph on
+It is not about pixels!
+\end_layout
+
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Sound
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Audio has a structural grammar.
+\end_layout
+
+\begin_layout Frame
+Digital Signal Processing (DSP) can extract features.
+\end_layout
+
+\begin_layout Frame
+\begin_inset Graphics
+	filename reco-image/noaa-fisheries-humpback.jpg
+	width 65col%
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename reco-image/audio-graph.eps
+	width 30col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+Where do meaningful filters come from?
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Section
+Learning
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Part Two: Learning
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Graph structure can be learned from observation!
+\end_layout
+
+\begin_layout Frame
+Outline:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Lexical Attraction (Mutual Information, Entropy)
+\end_layout
+
+\begin_layout Itemize
+Lexical Entries
+\end_layout
+
+\begin_layout Itemize
+Similarity Metrics
+\end_layout
+
+\begin_layout Itemize
+Learning Syntax
+\end_layout
+
+\begin_layout Itemize
+Generalization as Factorization
+\end_layout
+
+\begin_layout Itemize
+Composition and Recursion
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Lexical Attraction AKA Entropy
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Frequentist approach to probability.
+\end_layout
+
+\begin_layout Frame
+Origins in Corpus Linguistics, N-grams.
+\end_layout
+
+\begin_layout Frame
+Relates ordered pairs 
+\begin_inset Formula $\left(u,w\right)$
+\end_inset
+
+ of words, ...
+ or other things ...
+\end_layout
+
+\begin_layout Frame
+Count the number 
+\begin_inset Formula $N\left(u,w\right)$
+\end_inset
+
+ of co-occurrences of words, or ...
+\end_layout
+
+\begin_layout Frame
+Define 
+\begin_inset Formula $P\left(u,w\right)=N\left(u,w\right)/N\left(*,*\right)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset Formula $LA\left(w,u\right)=\log_{2}\frac{P\left(w,u\right)}{P\left(w,*\right)P\left(*,u\right)}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+
+\emph on
+Lexical Attraction is mutual information.
+\emph default
+
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+Deniz Yuret (1998) 
+\begin_inset Quotes eld
+\end_inset
+
+Discovery of Linguistic Relations Using Lexical Attraction
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+This LA can be positive 
+\emph on
+or 
+\emph default
+negative!
+\end_layout
+
+\begin_layout Frame
+\begin_inset Graphics
+	filename reco-image/Yuret.png
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Structure in Lexical Entries
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Draw a Maximum Spanning Tree/Graph.
+\end_layout
+
+\begin_layout Frame
+Cut the edges to form half-edges.
+\end_layout
+
+\begin_layout Frame
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset Graphics
+	filename reco-image/disjunct-cut.eps
+	lyxscale 60
+	width 70col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+Alternative notations for Lexical entries:
+\end_layout
+
+\begin_layout Itemize
+ball: the- & throw-;
+\end_layout
+
+\begin_layout Itemize
+ball: 
+\begin_inset Formula $\left|the-\right\rangle \otimes\left|throw-\right\rangle $
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+word: connector-seq; is a 
+\begin_inset Formula $\left(w,d\right)$
+\end_inset
+
+ pair
+\end_layout
+
+\end_deeper
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+Accumulate counts 
+\begin_inset Formula $N\left(w,d\right)$
+\end_inset
+
+ for each observation of 
+\begin_inset Formula $\left(w,d\right)$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Frame
+Skip-gram-like (sparse) vector: 
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset Formula $\overrightarrow{w}=P\left(w,d_{1}\right)\widehat{e_{1}}+\cdots+P\left(w,d_{n}\right)\widehat{e_{n}}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Plus sign is logical disjunction (choice in linear logic).
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Similarity Scores
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Probability space is not Euclidean; it's a simplex.
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Dot product of word-vectors is insufficient.
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset Formula $\cos\theta=\overrightarrow{w}\cdot\overrightarrow{v}=\sum_{d}P\left(w,d\right)P\left(v,d\right)$
+\end_inset
+
+
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+Experimentally, cosine distance low quality.
+\end_layout
+
+\end_deeper
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset VSpace defskip
+\end_inset
+
+Define vector-product mutual information:
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset Formula $MI\left(w,v\right)=\log_{2}\overrightarrow{w}\cdot\overrightarrow{v}\left/\left(\overrightarrow{w}\cdot\overrightarrow{*}\right)\;\left(\overrightarrow{*}\cdot\overrightarrow{v}\right)\right.$
+\end_inset
+
+
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+where 
+\begin_inset Formula $\overrightarrow{w}\cdot\overrightarrow{*}=\sum_{d}P\left(w,d\right)P\left(*,d\right)$
+\end_inset
+
+ 
+\end_layout
+
+\end_deeper
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset VSpace defskip
+\end_inset
+
+Distribution of (English) word-pair similarity is Gaussian!
+\end_layout
+
+\begin_layout Frame
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset Graphics
+	filename en-sims-p3/mi-dist-tsup.eps
+	width 35col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+What's the theoretical basis for this? Is it a GUE ???
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Learning Syntax; Learning a Lexis
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Word-disjunct vectors are skip-gram-like.
+\end_layout
+
+\begin_layout Frame
+They encode conventional notions of syntax:
+\end_layout
+
+\begin_layout Frame
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset Graphics
+	filename reco-image/disjunct-syntax.eps
+	lyxscale 70
+	width 70col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Agglomerate clusters using ranked similarity:
+\begin_inset VSpace defskip
+\end_inset
+
+
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset Formula $\mbox{ranked }MI\left(w,v\right)=\log_{2}\overrightarrow{w}\cdot\overrightarrow{v}\left/\sqrt{\left(\overrightarrow{w}\cdot\overrightarrow{*}\right)\;\left(\overrightarrow{*}\cdot\overrightarrow{v}\right)}\right.$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset VSpace defskip
+\end_inset
+
+
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Generalization done via 
+\begin_inset Quotes eld
+\end_inset
+
+democratic voting
+\begin_inset Quotes erd
+\end_inset
+
+:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Select an 
+\begin_inset Quotes eld
+\end_inset
+
+in-group
+\begin_inset Quotes erd
+\end_inset
+
+ of similar words.
+\end_layout
+
+\begin_layout Itemize
+Vote to include disjuncts shared by majority.
+\end_layout
+
+\begin_layout Standard
+Yes, this actually works! There's (open) source code, datasets.
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+OpenCog Learn Project, https://github.com/opencog/learn
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Generalization is Factorization
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+The word-disjunct matrix 
+\begin_inset Formula $P\left(w,d\right)$
+\end_inset
+
+ can be factored:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset Formula $P\left(w,d\right)=\sum_{g,g^{\prime}}P_{L}\left(w,g\right)P_{C}\left(g,g^{\prime}\right)P_{R}\left(g^{\prime},d\right)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $g$
+\end_inset
+
+ = word class; 
+\begin_inset Formula $g^{\prime}$
+\end_inset
+
+ = grammatical relation (
+\begin_inset Quotes eld
+\end_inset
+
+LG macro
+\begin_inset Quotes erd
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Itemize
+Factorize: 
+\begin_inset Formula $P=LCR$
+\end_inset
+
+ Left, central and right block matrices.
+\end_layout
+
+\begin_layout Itemize
+L and R are sparse, large.
+ 
+\end_layout
+
+\begin_layout Itemize
+C is small, compact, highly connected.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset Graphics
+	filename skimage/factor.eps
+	lyxscale 50
+	width 80col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+This is the
+\emph on
+ defacto
+\emph default
+ organization of the English, Russian dictionaries in Link Grammar!
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Key Insight about Interpretability
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+The last graph is ultimately key:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Neural nets can accurately capture the dense, interconnected central region.
+\end_layout
+
+\begin_layout Itemize
+That's 
+\emph on
+why
+\emph default
+ they work.
+\end_layout
+
+\begin_layout Itemize
+They necessarily perform dimensional reduction on the sparse left and right
+ factors.
+\end_layout
+
+\begin_layout Itemize
+By erasing/collapsing the sparse factors, neural nets become no longer interpret
+able!
+\end_layout
+
+\begin_layout Itemize
+Interpretability is about regaining (factoring back out) the sparse factors!
+\end_layout
+
+\begin_layout Itemize
+That is what this symbolic learning algorithm does.
+\end_layout
+
+\end_deeper
+\begin_layout Frame
+Boom!
+\end_layout
+
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Summary of the Learning Algorithm
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Note pair-wise correlations in a corpus.
+\end_layout
+
+\begin_layout Itemize
+Compute pair-wise MI.
+\end_layout
+
+\begin_layout Itemize
+Perform a Maximum Spanning Tree (MST) parse.
+\end_layout
+
+\begin_layout Itemize
+Bust up the tree into jigsaw pieces.
+\end_layout
+
+\begin_layout Itemize
+Gather up jigsaw pieces into piles of similar pieces.
+\end_layout
+
+\begin_layout Itemize
+The result is a grammar that models the corpus.
+\end_layout
+
+\begin_layout Itemize
+This is a conventional, ordinary linguistic grammar.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Compositionality and Recursion
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Jigsaw puzzle assembly is (free-form) hierarchical!
+\end_layout
+
+\begin_layout Frame
+Recursive structure exists: the process can be repeated.
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Tabular
+<lyxtabular version="3" rows="6" columns="2">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Idioms,
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Institutional
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Anaphora
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+phrases
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+resolution
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="3" alignment="center" valignment="middle" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename reco-image/puzzle-idiom.eps
+	lyxscale 50
+	width 30col%
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="4" alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="3" alignment="center" valignment="middle" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename reco-image/anaphora.eps
+	lyxscale 70
+	width 60col%
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="4" alignment="center" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Section
+Vision and Sound
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Part Three: Vision and Sound
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Not just language!
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Random Filter sequence exploration/mining
+\end_layout
+
+\begin_layout Itemize
+Symbol Grounding Problem
+\end_layout
+
+\begin_layout Itemize
+Affordances
+\end_layout
+
+\begin_layout Itemize
+Common Sense Reasoning
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Something from Nothing
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+What is a relevant audio or visual stimulus?
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+We got lucky, working with words!
+\end_layout
+
+\end_deeper
+\begin_layout Frame
+Random Exploration/Mining of Filter sequences! 
+\end_layout
+
+\begin_layout Frame
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset Graphics
+	filename reco-image/filters.eps
+	lyxscale 50
+	width 70col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Salience is given by filters with high Mutual Information!
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Symbol Grounding Problem
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+What is a 
+\begin_inset Quotes eld
+\end_inset
+
+symbol
+\begin_inset Quotes erd
+\end_inset
+
+? What does any given 
+\begin_inset Quotes eld
+\end_inset
+
+symbol
+\begin_inset Quotes erd
+\end_inset
+
+ mean?
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+It means what it is! Filters are interpretable.
+\end_layout
+
+\end_deeper
+\begin_layout Frame
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset Graphics
+	filename reco-image/grounding.eps
+	lyxscale 60
+	width 70col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Solves the Frame Problem!
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Frame Problem, 
+\emph on
+Stanford Encyclopedia of Philosophy
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+Can learn Affordances!
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Embodied Cognition, 
+\emph on
+Stanford Encyclopedia of Philosophy
+\emph default
+ 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Common Sense Reasoning
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Rules, laws, axioms of reasoning and inference can be learned.
+\end_layout
+
+\begin_layout Frame
+\begin_inset Formula 
+\[
+\frac{A\wedge A\rightarrow B}{B}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset space \qquad{}
+\end_inset
+
+
+\begin_inset Graphics
+	filename reco-image/reasoning.eps
+	lyxscale 60
+	width 60page%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Naively, simplistically: Learned Stimulus-Response AI (SRAI)
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Metaphorical example: Mel'čuk's Meaning Text Theory (MTT) SemR + Lexical
+ Functions (LF) would be better.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Section
+Conclusions
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Part Four: Conclusions
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Leverage idea that everything is a graph!
+\end_layout
+
+\begin_layout Itemize
+Discern graph structure by frequentist observations!
+\end_layout
+
+\begin_layout Itemize
+Naively generalize recurring themes by MI-similarity clustering!
+\end_layout
+
+\begin_layout Itemize
+(Magic happens here)
+\end_layout
+
+\begin_layout Itemize
+Repeat! Abstract to next hierarchical level of pair-wise relations
+\end_layout
+
+\end_deeper
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Frame
+Looking to the future:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Better software inrastructure is needed; running experiments is hard!
+\end_layout
+
+\begin_layout Itemize
+Engineering can solve many basic performance and scalability issues.
+\end_layout
+
+\begin_layout Itemize
+Shaky or completely absent theoretical underpinnings for most experimental
+ results.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Thank you!
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Questions?
+\end_layout
+
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Supplementary materials
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Part Five: Supplementary Materials
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Audio Filters
+\end_layout
+
+\begin_layout Itemize
+MTT SemR representation, Lexical Functions
+\end_layout
+
+\begin_layout Itemize
+Curry–Howard–Lambek Correspondance
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Audio Filters
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+A stereotypical audio processing filter sequence:
+\end_layout
+
+\begin_layout Frame
+\begin_inset Graphics
+	filename reco-image/audio-dsp-filtering.png
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Meaning-Text Theory
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Aleksandr Žolkovskij, Igor Mel’čuk
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+Sylvain Kahane, 
+\begin_inset Quotes eld
+\end_inset
+
+The Meaning Text Theory
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Graphics
+	filename reco-image/Meaningtext.gif
+	width 80col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Lexical Function examples:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Syn(helicopter) = copter, chopper
+\end_layout
+
+\begin_layout Itemize
+A0(city) = urban
+\end_layout
+
+\begin_layout Itemize
+S0(analyze) = analysis
+\end_layout
+
+\begin_layout Itemize
+Adv0(followV [N]) = after [N]
+\end_layout
+
+\begin_layout Itemize
+S1(teach) = teacher
+\end_layout
+
+\begin_layout Itemize
+S2(teach) = subject/matter 
+\end_layout
+
+\begin_layout Itemize
+S3(teach) = pupil 
+\end_layout
+
+\begin_layout Itemize
+...
+\end_layout
+
+\begin_layout Standard
+More sophisticated than Predicate-Argument structure.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\begin_inset Separator plain
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Curry–Lambek–Howard Correspondance
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+Each of these have a corresponding mate:
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+Moerdijk & MacLane (1994) 
+\begin_inset Quotes eld
+\end_inset
+
+Sheaves in Geometry and Logic
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+
+\size footnotesize
+Baez & Stay (2009) 
+\begin_inset Quotes eld
+\end_inset
+
+Physics, Topology, Logic and Computation: A Rosetta Stone
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+A specific Category 
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Cartesian Category vs.
+ Tensor Category
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+An 
+\begin_inset Quotes eld
+\end_inset
+
+internal language
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Simply Typed Lambda Calculus vs.
+ Semi-Commutative Monoid (distributed computing with mutexes, locks e.g.
+ vending machines!)
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+A type theory
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+The HoTT Book, Homotopy Type Theory
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+A logic 
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Classical Logic vs.
+ Linear Logic
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Notions of Currying, Topology 
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Scott Topology, schemes in algebraic geometry
+\end_layout
+
+\end_deeper
+\end_deeper
+\begin_layout Frame
+
+\end_layout
+
+\end_body
+\end_document
