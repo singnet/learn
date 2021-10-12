@@ -1,8 +1,9 @@
 ADD_GUILE_MODULE (FILES
 	learn.scm
+	agglo-rank.scm
 	batch-word-pair.scm
+	cliques.scm
 	common.scm
-	gram-agglo.scm
 	gram-class-api.scm
 	gram-classification.scm
 	gram-optim.scm
@@ -14,8 +15,6 @@ ADD_GUILE_MODULE (FILES
 	pseudo-csets.scm
 	shape-project.scm
 	shape-vec.scm
-	singletons.scm
-	summary.scm
 	utilities.scm
 	vectors.scm
 	MODULE_DESTINATION "${GUILE_SITE_DIR}/opencog/nlp/learn"

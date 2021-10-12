@@ -10,7 +10,6 @@ but the also require, as input, data that was produced by earlier files.
 * __utilities.scm__       Utilities, e.g. for looping.
 * __link-pipeline.scm__   Word-pair counting. Given raw input text, this
                           accumulates frequencies of word-pairs.
-* __singletons.scm__      Single-word counting. Unused.
 * __batch-word-pair.scm__ Batch-compute the marginals and mutual
                           information of word-pairs.
 * __mst-parser.scm__      MST Parser. Uses word-pair MI to generate
@@ -23,18 +22,19 @@ but the also require, as input, data that was produced by earlier files.
 * __shape-vec.scm__       Provides a matrix API to cset-shapes. These
                           are csets, where the wild-card is one of the
                           connectors (rather than the root-word of the
-                          disjunct)
+                          disjunct).
 * __summary.scm__         Print a summary report for a dataset.
-* __vectors.scm__         Vector arithmetic.
-* __gram-class.scm__      Merge words into grammatical classes.  If two
-                          words are similar, they are merged into one
-                          class.  If a word is similar to a class, the
-                          word is merged into the class. Several metrics
-                          are provided.
-* __gram-agglo.scm__      Agglomerative clustering. Uses abve merge
-                          strategies to actually create clusters.
+* __gram-classification.scm__  Text file explanation of grammatical similarity.
+* __gram-class-api.scm__  Public API classes for merging words into
+                          grammatical classes.
+* __agglo-rank.scm__      Agglomerative clustering. Loops over all words,
+                          creating clusters.
+* __gram-projective.scm__ Code that merges pairs of words into a new cluster,
+                          or merges a single word into an existing cluster.
 * __cset-class.scm__      Merge connector sets.
+* __vectors.scm__         Vector arithmetic.
 * __export-disjuncts.scm__ Export grammatical classes to Link Grammar.
+
 
 Data Structures
 ---------------

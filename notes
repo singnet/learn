@@ -5114,6 +5114,891 @@ right-dual-pattern
 
 Fixed in #2834. Yay!
 
+-------------------
+(define (dump A)
+	(format FH "(~A 
+	#f)
+(cog-map-type dump 'Atom)
+
+----------
+for amirouche:
+run-1-en_mpg-tranche-1.rdb
+
+(use-modules (opencog) (opencog persist) (opencog persist-file))
+(use-modules (opencog nlp) (opencog persist-rocks))
+(use-modules (opencog matrix) (opencog nlp learn))
+(define rsn (RocksStorageNode "rocks:///data/run-1-en_mpg-tranche-1.rdb"))
+(cog-open rsn)
+;;; (load-atomspace rsn)
+(define cset-obj (make-pseudo-cset-api))
+(cset-obj 'fetch-pairs) ; 994 secs
+(print-matrix-summary-report cset-obj)
+(cog-close rsn)
+(count-all) ; 15996448
+(cog-report-counts)
+((PredicateNode . 11) (ListLink . 1) (AnyNode . 2) (Connector . 260275) (ConnectorDir . 2) (ConnectorSeq . 7470276) (Section . 8131679) (AnchorNode . 1) (SchemaNode . 1) (RocksStorageNode . 1) (WordNode . 134199))
+
+(define fsn (FileStorageNode "/tmp/en-tranche-1-mpg.scm"))
+(cog-open fsn)
+(store-atomspace fsn)
+(cog-close fsn)
+
+RSS 12.4 G
+2474901877
+96924177
+
+===================================================
+wtf filter.
+
+(psa 'left-basis)
+(define prs (psa 'get-all-elts))
+
+Ahh. No support!  make-compute-freq make-batch-mi
+
+batch-all-pair-mi
+Run `((add-support-compute LLOBJ) 'cache-all)` to compute that data.
+
+'wild-wild-count
+
+(length (LLOBJ 'get-all-elts))
+(rpt-obj 'num-pairs)  --- set with ((add-report-api LLOBJ) 'set-size
+blah
+ do this minimally: ((make-central-compute LLOBJ) 'cache-total)
+
+However, this requires supp-obj 'total-support-left to work
+and that can't work until ....
+
+(sup-obj 'wild-wild-count)
+Set with 'set-left-totals or set-right-totals
+Same as get-total-count-left
+Same as ((add-support-api LLOBJ) 'get-total-count-left)
+
+which is set by ...
+
+computed by (add-support-api LLOBJ) 'total-support-left
+
+Crap. There's no simple efficient way to count.
+What about fetch-pairs !?
+
+Hang on. 
+(define sup (add-support-api psa))
+(sup 'total-support-left) is the total pairs.
+(sup 'total-count-left) is the wild-wild
+
+Need ...
+'left-dim
+'right-dim
+'num-pairs ... (inexact->exact (round ... done.
+
+(add-support-compute 'cache-all
+
+(define sup (add-support-api psa))
+(sup 'set-size (psa 'left-basis-size) (psa 'right-basis-size)
+    (sup 'wild-wild-count))
+(store-atom (psa 'wild-wild))
+
+(define storo (make-store psa))
+(storo 'store-wildcards)
+
+-------------------------
+(define wi (ListLink  (AnyNode "cset-word") (AnyNode "cset-disjunct")))
+(cog-keys wi)
+((PredicateNode "*-Right Total Key-*")
+ (PredicateNode "*-TruthValueKey-*")
+ (PredicateNode "*-MM^T Product Key-*")
+ (PredicateNode "*-Left Total Key-*")
+)
+
+and they are good, so wtf
+(define rpt-obj (add-report-api psa))
+(rpt-obj 'left-dim)
+There is no "*-Dimension Key-*" .. why?
+
+cause make-central-compute never ran...
+
+164 min and 69.7 GB before starting central compute.
+
+----------------------
+((PredicateNode . 14) (ListLink . 26076503) (AnyNode . 2) (Connector . 725460) (ConnectorDir . 2) (ConnectorSeq . 25698949) (Section . 28436901) (TypeNode . 2) (AnchorNode . 1) (SchemaNode . 1) (RocksStorageNode . 2) (WordNode . 377553))
+
+after col trim:
+(PredicateNode . 14) (ListLink . 2557528) (AnyNode . 2) (Connector . 379443) (ConnectorDir . 2) (ConnectorSeq . 2366262) (Section . 4962919) (TypeNode . 2) (AnchorNode . 1) (SchemaNode . 1) (RocksStorageNode . 2) (WordNode . 191265))
+
+
+((PredicateNode . 14) (ListLink . 2557528) (AnyNode . 2) (Connector . 379443) (ConnectorDir . 2) (ConnectorSeq . 2366262) (Section . 4000706) (VariableNode . 2) (QueryLink . 1791930) (TypeNode . 2) (TypedVariableLink . 2) (AnchorNode . 1) (SchemaNode . 1) (RocksStorageNode . 2) (WordNode . 191265))
+
+Ooops QueryLink not cleaned up.
+Now
+((PredicateNode . 14) (ListLink . 2557528) (AnyNode . 2) (Connector . 379443) (ConnectorDir . 2) (ConnectorSeq . 2366262) (Section . 2208776) (TypeNode . 2) (AnchorNode . 1) (SchemaNode . 1) (RocksStorageNode . 2) (WordNode . 191265))
+
+After save and restore:
+((PredicateNode . 8) (ListLink . 1791931) (AnyNode . 2) (Connector . 157829) (ConnectorDir . 2) (ConnectorSeq . 1733439) (Section . 2208776) (AnchorNode . 1) (SchemaNode . 1) (RocksStorageNode . 1) (WordNode . 102656))
+
+why more word nodes than array dims ???
+(VariableNode "$api-right-star")
+
+   ; After trimming, there may be left and right basis elements
+   ; that are not in any pairs, but have not been deleted.
+   ; Delete those now.
+   (for-each
+      (lambda (base)
+         (if (and (cog-atom? base) (equal? 0 (cog-incoming-size base)))
+            (cog-delete-recursive! base)))
+      (early-stars 'right-basis))
+		(cog-get-atoms 'WordNode))
+		(cog-get-atoms 'Connector))
+
+(WordNode "whipcord")
+Oh. Linkage filter.
+
+(WordNode "Bowline")
+OK, marginals were not removed...
+Let's hack that..
+
+   (for-each
+      (lambda (base)
+         (if (and (cog-atom? base) (equal? 1 (cog-incoming-size base)))
+            (cog-delete-recursive! base)))
+		(cog-get-atoms 'WordNode))
+
+(define cnt 0)
+   (for-each
+      (lambda (base)
+         (if (and (cog-atom? base) (equal? 1 (cog-incoming-size base)))
+		(set! cnt (+ 1 cnt))))
+		(cog-get-atoms 'ConnectorSeq))
+
+   (for-each
+      (lambda (base)
+         (if (and (cog-atom? base) (equal? 0 (cog-incoming-size-by-type base 'Section)))
+            (cog-delete-recursive! base)))
+		(cog-get-atoms 'ConnectorSeq))
+		(cog-get-atoms 'Word))
+
+
+WTF. How can we *still* be hitting the above???
+
+((make-store psa) 'store-wildcards)
+
+
+----------------
+dropdb en_mpg_53
+dropdb en_huge_marg
+--------------------
+
+(load-atoms-of-type 'Any)
+(load-referers (AnyNode "cset-word"))
+(load-referers (AnyNode "cset-disjunct"))
+(define pca (make-pseudo-cset-api))
+(pca 'wild-wild) Gahhh
+
+Atoms tot 156M of which 106M are word-pairs.
+
+75072984
+(ListLink . 37060608)
+(Connector . 951753)
+(ConnectorSeq . 36562917)
+(WordNode . 497690)
+
+after trimming words:
+71610887
+(ListLink . 35561670)
+(Connector . 487523)
+(ConnectorSeq . 35315198) 
+(WordNode . 246471)
+
+after trimming connseqs:
+
+cp -pr run-1-marg-tranche-12.rdb run-1-t12-trim-1-1-1.rdb
+(define storage-node (RocksStorageNode "rocks:///home/ubuntu/data/run-1-t12-trim-1-1-1.rdb"))
+
+(define pca (make-pseudo-cset-api))
+(fetch-atom (pca 'wild-wild))
+(print-matrix-summary-report pca)
+-------------------------
+
+(define sim (add-similarity-compute STARS))
+(sim 'foo wa wb)
+
+define-public (make-merger STARS MPRED FRAC-FN NOISE MIN-CNT STORE MRG-CON)
+
+,
+the
+###LEFT-WALL###
+.
+of
+to
+and
+a
+in
+
+Crash:
+mmap(PROT_NONE) failed
+Aborted
+
+bdwgc
+os_dep.c:            ABORT("mmap(PROT_NONE) failed");
+line 2658
+
+GC_INNER void GC_unmap(ptr_t start, size_t bytes)
+
+Happened again... and a third time:
+
+#2  0x00007ffff7a27513 in GC_unmap (start=<optimized out>, bytes=<optimized out>)
+    at ../extra/../os_dep.c:2576
+#3  GC_unmap (start=<optimized out>, bytes=<optimized out>) at ../extra/../os_dep.c:2535
+#4  0x00007ffff7a27601 in GC_unmap_old () at ../extra/../allchblk.c:419
+#5  0x00007ffff7a2eef5 in GC_unmap_old () at ../extra/../allchblk.c:404
+#6  GC_finish_collection () at ../extra/../alloc.c:1115
+#7  0x00007ffff7a2f375 in GC_try_to_collect_inner (
+    stop_func=0x7ffff7a1c2d0 <GC_never_stop_func>) at ../extra/../alloc.c:553
+#8  GC_try_to_collect_inner (stop_func=0x7ffff7a1c2d0 <GC_never_stop_func>)
+    at ../extra/../alloc.c:485
+#9  0x00007ffff7a2f69c in GC_collect_or_expand (needed_blocks=needed_blocks@entry=220, 
+    ignore_off_page=ignore_off_page@entry=0, retry=<optimized out>)
+    at ../extra/../alloc.c:1443
+#10 0x00007ffff7a2fbcf in GC_alloc_large (lb=<optimized out>, lb@entry=898912, 
+    k=k@entry=1, flags=flags@entry=0) at ../extra/../malloc.c:66
+#11 0x00007ffff7a33bb9 in GC_generic_malloc (lb=898912, k=1) at ../extra/../malloc.c:264
+#12 0x00007ffff7a33e12 in GC_malloc_kind_global (lb=898912, k=1)
+    at ../extra/../malloc.c:327
+#13 0x00007ffff7f437a9 in scm_c_make_vector ()
+   from /usr/lib/x86_64-linux-gnu/libguile-3.0.so.1
+#14 0x00007ffff7edc1d6 in ?? () from /usr/lib/x86_64-linux-gnu/libguile-3.0.so.1
+#15 0x00007ffff7edc656 in scm_hash_fn_create_handle_x ()
+   from /usr/lib/x86_64-linux-gnu/libguile-3.0.so.1
+#16 0x00007ffff7edc9ee in scm_hash_fn_set_x ()
+   from /usr/lib/x86_64-linux-gnu/libguile-3.0.so.1
+#17 0x00007ffff7edcc0f in scm_hashx_set_x ()
+
+#24 0x00007ffff7f4d705 in scm_call_n () from /usr/lib/x86_64-linux-gnu/libguile-3.0.so.1
+#25 0x00007ffff7ec7133 in scm_call_3 () from /usr/lib/x86_64-linux-gnu/libguile-3.0.so.1
+
+
+if (GC_n_heap_sects >= MAX_HEAP_SECTS
+printf("duude aeeiiie sects=%ld\n", GC_n_heap_sects); 
+1343
+
+commit d3dede3ce4462cd82a15f161af797ca51654546a (HEAD, tag: v8.0.4, release-8_0_4)
+Author: Ivan Maidanski <ivmai@mail.ru>
+Date:   Sat Mar 2 10:09:42 2019 +0300
+
+    [8.0.4]
+    
+    Bump gc version to 8.0.4
+
+../configure --enable-large-config
+make
+make check
+sudo make install
+
+Hang on, was this linked, or was it libgc-1.3.2 from install ???
+/usr/lib/x86_64-linux-gnu/libgc.so.1.3.2
+ldd /usr/bin/guile says:
+libgc.so.1 => /usr/local/lib/libgc.so.1  so good
+
+(bover 'batch-list LIST)
+
+cog-rocks-stats: Atomspace holds 895752 atoms
+Connected to `rocks:///home/ubuntu/data//run-1-t123-tsup-1-1-1.rdb`
+Database contents:
+  Next aid: 138920740
+  Atoms/Links/Nodes a@: 25214554 l@: 25191416 n@: 22826
+  Keys/Incoming/Hash k@: 37241924 i@: 50417644 h@: 0
+Unix max open files rlimit= 1024 1048576
+
+(WordNode . 22899) 
+
+(WordNode . 19606)
+Database contents:
+  Next aid: 138920740
+  Atoms/Links/Nodes a@: 22773596 l@: 22753677 n@: 19629
+  Keys/Incoming/Hash k@: 33583720 i@: 45542826 h@: 0
+Unix max open files rlimit= 1024 1048576
+
+
+(ListLink
+  (ConnectorSeq
+    (Connector
+      (WordNode "It")
+      (ConnectorDir "-"))
+    (Connector
+      (WordNode "no")
+      (ConnectorDir "+"))
+    (Connector
+      (WordNode "uncommon")
+      (ConnectorDir "+")))
+  (AnyNode "cset-disjunct"))
+
+  (define (get-right-wildcard WORD)
+         (ListLink WORD any-right))
+
+(right-wildcard)
+
+---------------------------
+
+Possible alternate titles: “Recongizing part-whole hierarchies”.
+
+Solving the frame problem
+
+Solving the symbol grounding problem
+
+initially 85219
+
+(define sup (add-support-api sha))
+(define rdl (sha 'right-duals wb))
+(define psu (add-support-compute sha))
+(psu 'set-right-marginals wb)  ;; Uh needed?
+
+psu 'all-left-marginals ; too slow
+
+(for-each
+	(lambda (COL) (psu 'set-left-marginals COL))
+	(sha 'right-duals wb))
+(atc 'set-mmt-marginals wb)
+
+(define e (make-elapsed-secs))
+(psu 'set-left-totals)  ; needed?
+(e)
+store-mmt
+
+(store-atom (atc 'set-mmt-totals))
+
+(sha 'right-duals (WordClass "to from"))
+
+store-mmt
+asc 'set-left-marginals DJ
+calls  left-stars on colum (dj)
+these have secions and crosses as apporiate, bu wclas??
+
+direct sum:
+disjoint-left is #t if left types differ
+distinct-type is #t if wiether differ
+
+((PredicateNode . 13) (ListLink . 220087) (AnyNode . 7) (Connector . 17092) (ConnectorDir . 2) (ConnectorSeq . 205003) (Section . 855718) (ShapeLink . 838580) (CrossSection . 1922250) (VariableNode . 1) (TypeNode . 4) (TypeChoice . 2) (AnchorNode . 1) (SchemaNode . 1) (RocksStorageNode . 1) (WordNode . 15083))
+
+
+wtf...
+add-covering-sections .. really!?
+
+arg....
+add-covering-sections returns wrong pairs wrong left-right.
+
+Double check -- why weren't we using this before?
+
+OK, so no counts... how did that happen?
+(define sup (add-support-api sha))
+(sup 'right-count (WordNode "—")) ; 20172.0
+(sup 'right-count (WordNode "+")) ; 9339.0
+(sup 'right-count (WordClassNode "— +")) ; 14900.0
+(sup 'right-count (WordNode "coincidence"))
+
+Did clobber do this?  Yes it did!  Ouch!
+clobber kills all left and right support marginals.
+This is too extreme.
+
+(recompute-mmt is defined already ...
+
+Ohh...
+(pair-wise-cluster LLOBJ NRANK LOOP-CNT)
+
+(define wc (WordClass "should could"))
+(define cnt 0)
+(for-each (lambda (in)
+	(if (not (equal? (cog-type in) 'SimilarityLink))
+		(format #t "duude ~A\n" in)))
+	(cog-incoming-set wc))
+
+(remove-empty-sections sha wc)
+
+(define ci (cog-incoming-set wc))
+
+Failed merge (There there) (should could) be
+Some cross-sections hanging out.
+
+So appearantly, this is a real merge bug.
+We need unit tests.
+
+[be, ({sc}, there- & $+)]
+[be, ({sc}, There- & $+)]
+[there, ({sc}, $- & be+)]
+[There, ({sc}, $- & be+)]
+
+(define th-sc-vbe
+ (CrossSection ; (ctv 1 0 67)
+  (WordNode "There")
+  (ShapeLink
+    (WordClassNode "should could")
+    (Connector
+      (VariableNode "$connector-word")
+      (ConnectorDir "-"))
+    (Connector
+      (WordNode "be")
+      (ConnectorDir "+"))))
+)
+
+(define be-sc-thv
+(CrossSection ; (ctv 1 0 67)
+  (WordNode "be")
+  (ShapeLink
+    (WordClassNode "should could")
+    (Connector
+      (WordNode "There")
+      (ConnectorDir "-"))
+    (Connector
+      (VariableNode "$connector-word")
+      (ConnectorDir "+"))))
+)
+
+add-cluster-gram
+gram-class-api.scm
+
+
+
+(define maybes-sc-thv                                                           (cog-link 'Shape
+(WordClassNode "should could")                                                      (Connector
+      (WordNode "There")                                                              (ConnectorDir "-"))
+    (Connector                                                                        (VariableNode "$connector-word")
+      (ConnectorDir "+"))))                                                     (define be-sc-thv #f)
+(if maybes-sc-thv (set! be-sc-thv (cog-link 'CrossSection
+(WordNode "be") maybes-sc-thv)))
+
+(format #t "duuude excess ~A and ~A\n" maybes-sc-thv be-sc-thv)
+
+OK, so these are there prior to the merge!
+
+(define maythere
+(cog-link 'Section
+(WordClassNode "should could")
+(ConnectorSeq
+(Connector (WordNode "There") (ConnectorDir "-"))
+(Connector (WordNode "be") (ConnectorDir "+")))))
+
+(reshape-merge LLOBJ CLA MRG CLB PAIR 1.0 NOISE)
+
+(define badcnt 0)
+(define goodcnt 0)
+(define (check-x xsec)
+	(define sect (sha 'get-section xsec))
+	(if (nil? sect)
+(begin
+		 (format #t "oh no! bad cross=~A\n" xsec)
+		(set! badcnt (+ 1 badcnt))
+)
+		(set! goodcnt (+ 1 goodcnt))
+	)
+)
+
+(for-each
+	(lambda (CLS)
+		(for-each
+			(lambda (SHP)
+				(for-each check-x (cog-incoming-by-type SHP 'CrossSection))
+			)
+			(cog-incoming-by-type CLS 'ShapeLink))
+	)
+	(cog-get-atoms 'WordClass))
+
+6152 bad ones
+
+(define cls (car (cog-get-atoms 'WordClass)))
+(define ship (list-ref (cog-incoming-by-type cls 'ShapeLink) 2))
+(define xes (cog-incoming-by-type ship 'CrossSection))
+
+ (for-each
+         (lambda (SHP)
+            (for-each check-x (cog-incoming-by-type SHP 'CrossSection))
+         )
+         (cog-incoming-by-type cls 'ShapeLink))
+
+; Sanity check
+(define (check-crosses LLOBJ WHERE)
+   (for-each
+      (lambda (XSECT)
+         (define sect (LLOBJ 'get-section XSECT))
+         (when (nil? sect)
+            (format #t "Fail with an F on ~A\n" XSECT)
+            (throw 'bad-cleanup WHERE "CrossSections without Sections")))
+      (cog-get-atoms 'CrossSection)))
+
+
+(`—`, `+`) -- no problem
+(`;`, `,`) -- no problem...
+(`is`, `was`) .. no problem ... wtf ...
+(`and`, `but`) .. no problem ...
+
+(for-each
+	(lambda (n)
+		(pair-wise-cluster sha 100 1)
+		(check-crosses sha 'foo))
+	(iota 500))
+
+
+(define (none WA WB) 0.0)
+(define (always WA WB) #t)
+(define (store-mmt WRD)  #f)
+(define (store-final) #f)
+(define mrg (make-merger sha always none 0 0 store-mmt store-final #t))
+
+(mrg 'merge-function (Word "and") (Word "but"))
+(check-crosses sha 'foo)  ;;;; passes good
+(mrg 'merge-function (WordClass "and but") (Word "is"))
+(check-crosses sha 'foo)  ;; passes good
+(mrg 'merge-function (WordClass "and but") (Word "was"))
+(check-crosses sha 'foo)   ;; still good .. wtf
+(mrg 'merge-function (Word "It") (Word "He"))
+(check-crosses sha 'foo) ;; still good ...
+(mrg 'merge-function (WordClass "and but") (WordClass "It He"))
+(check-crosses sha 'foo) ;; still good.
+
+Bug is not reproducible...
+------------------------
+------ Next in line:
+ranked-MI = 7.2713 MI = 5.8597 (`would must`, `should could`)
+Start merge 23 of `would must` and `should could`
+------ Combine: Merged 1197 sections in 0.000 secs; 1255145472.0 scts/sec
+------ Combine: Revised 1197 shapes in 1.000 secs; 1197.0 scts/sec
+ice-9/boot-9.scm:1669:16: In procedure raise-exception:
+Throw to key `non-empy-class' with args `(merge-clusters "we expect it to be empty!")'.
+In opencog/nlp/learn/agglo-rank.scm:
+   412:16  3 (_ 0)
+In opencog/nlp/learn/gram-projective.scm:
+   879:32  2 (merge (WordClassNode "would must")
+ #)
+   690:16  1 (merge-clusters _ _ _ _ _)
+
+Not in any sections or crosses any more but ...
+
+(cog-incoming-size (Connector (WordClass "should could") (ConnectorDir "-")))
+(cog-incoming-size (Connector (WordClass "should could") (ConnectorDir "-")))
+119 and 132
+
+(define wc (WordClass "should could"))
+(define cm (list-ref (cog-incoming-set wc) 1))
+(define cp (list-ref (cog-incoming-set wc) 2))
+
+(define bcnt 0)
+(for-each
+	(lambda (CSQ)
+		(for-each
+			(lambda (LL)
+				(if (< 0 (cog-count LL)) (set! bcnt (+ 1 bcnt)))
+			)
+			(cog-incoming-set CSQ))
+	)
+	(cog-incoming-set cp))
+
+----------------------------------
+
+(define sap (add-similarity-api sha #f "shape-mi"))
+(define (ranked-mi-sim WA WB)
+   (define miv (sap 'pair-count WA WB))
+   (if miv (cog-value-ref miv 1) -inf.0))
+
+(define wli (take ranked-words 200))
+(optimal-in-group ranked-mi-sim (Word "were") (Word "are") 0.7 wli)
+
+on upon
+will may
+had has
+and but
+. ?
+It He
+in of
+
+
+
+
+fixed bugs:
+oh no do we need TypeChoice!? I think we do... DONE
+* direct-sum.scm left types...  DONE
+
+* is mmtq loops correct?
+  i.e. are supports correct?
+  i.e. are duals being fetches correctly?
+  I think it's correct, but WordClass was not right. FIXED.
+* don't recomp similarity if present. DONE.
+* what is make-gram-class-api ?? not used anywhere!
+  In gram-class-api.scm Yeah, fixed. Now its key to clustering.
+* who calls store-aux? No one, it seems ... IGNORE.
+  I guess the run files maybe?? should do this ??
+* Need to fetch member links, too!? DONE now in gram-class-api
+* review trim stuff... as compared to gram-class-api.scm DONE
+* fix trim instructions. DONE
+* backwards order in names for clusters. DONE
+  add-cluster-gram 'make-cluster
+* fix run files to call add-gram-class-api DONE not needed
+* Need to update instructions. DONE
+* duplicate cluster names how will that work ?? NOT AN ISSUE.
+  Let the code do it's thing.
+
+todo --
+
+* Maybe do member management in add-cluster-gram ??
+
+-----------------
+
+overlap
+cosine
+(define pcos (add-similarity-compute sha))
+(define (get-cosine wa wb) (pcos 'right-cosine wa wb))
+(get-cosine (WordClass "###LEFT-WALL### :") (Word "###LEFT-WALL###")) ; 0.480889
+(get-cosine (WordClass "###LEFT-WALL### :") (Word ":")) ; 0.35835
+(get-cosine (Word "###LEFT-WALL###") (Word ":"))  ; 0.33167
+
+(define (get-ovlap wa wb) (pcos 'right-overlap wa wb))
+(get-ovlap (Word "###LEFT-WALL###") (Word ":")) ; 8.74631e-4
+
+Wow. So overlap is tiny! but cosine is huge! That means almost all
+disjuncts have a small count (so as to keep the cosine denominator 
+a small as possible)
+
+(define ecnt 0)
+(define bcnt 0)
+
+(define (prt DJA DJB) (format #t "duude ~A" DJ) 0)
+(define opr (add-support-compute (add-tuple-math sha prt 'right-element)))
+
+(define (dct x y) 
+(if (or (< 0 x) (< 0 y)) (set! ecnt (+ 1 ecnt)))
+(if (and (< 0 x) (< 0 y)) (set! bcnt (+ 1 bcnt))) 0)
+(define dpr (add-support-compute (add-tuple-math sha dct 'get-count)))
+
+(dpr 'right-count (list (Word "###LEFT-WALL###") (Word ":")))
+
+(define (add-id OBJ)
+	(lambda (message . args)
+		(case message
+			((ident) args)
+			(else (apply OBJ (cons message args))))))
+
+
+(define (dum SXA SXB) 
+(define x (if (equal? 0 SXA) 0 (get-count (car SXA))))
+(define y (if (equal? 0 SXB) 0 (get-count (car SXB))))
+(if (or (< 0 x) (< 0 y)) (set! ecnt (+ 1 ecnt)))
+(when (and (< 0 x) (< 0 y)) (set! bcnt (+ 1 bcnt))
+(format #t "duude ~A" SXA)
+)
+0)
+(define ppr (add-support-compute (add-tuple-math (add-id sha) dum 'ident)))
+
+------------
+and again:
+(`is was`, `had has`)
+(define wc (WordClass "had has"))
+
+Even after second run, there are some shapes with connectors in them
+
+((CrossSection (ctv 1 0 12)
+  (WordNode "always")
+  (ShapeLink
+    (WordClassNode "had has")
+    (Connector
+      (WordNode "She")
+      (ConnectorDir "-"))
+    (Connector
+      (VariableNode "$connector-word")
+      (ConnectorDir "+"))
+    (Connector
+      (WordNode "been")
+      (ConnectorDir "+"))))
+)
+
+Did we fail to scan.. what? What did we forget?
+the passes did not iterate over shapes... and to covert those into
+the orig sections...
+
+Need manual check
+1) for each shape having word/word-class, get all sections they
+   belong to, and verify counts.  Are teh counts still good?
+
+
+make-disinfo make-midisc make-mifuzz make-discrim make-fuzz
+
+accum-counts
+
+reshape-merge
+ (ACCUMULATE LLOBJ CLUST SECT WEIGHT)
+
+make-merger
+
+empty cluster, use accum fun that knows the pairs and votes.
+non-empty cluster... use accum fun tailored for that.
+
+
+no xes for the fraction
+
+if one is missing ... then...
+(define (reshape-crosses MRG W PR WEI)
+      (reshape-merge LLOBJ CLS MRG W PR WEI ACCUMULATE))
+
+clustsection is made anyway,
+call
+(reshape-merge LLOBJ CLS clustsect WA SECTA frac accfun)
+where accfun is the old counct-acc
+
+(clique LLOBJ CLUST SECT)  ccalls
+  (ACCUMULATE LLOBJ clustsect SECTA frac)
+
+where ACCUMULATE is the old counct-acc
+whose sig is (accumulate-count LLOBJ clustsec secta FRAC NOISE)
+
+-----
+OK, so
+(j,  a- b- e+) cnt=  15.75 is correct,
+But its not knocked down because ...
+
+[e, <j,  $- g- h+>] cnt =  12.75 this should be absent.
+(j,egh) from extra-j
+
+[e, <j,  a- b- $+>] cnt =  15.75 that''s right.
+
+cons: setup-j-extra adds (j,abe) and (j-egh)
+
+setup-e-extra adds : (e, abe) and (e abj) consext
+
+crosses on e should be (1-p) * [e, <j, vgh>] -- this is seen OK
+this one: (1-p) * [e, <j, abv>]  should be absorbed but was not.
+The cross-section merge should have picked this up!
+
+so first past converts fine.
+
+The bad version:
+---
+duude elt before 15.750 * [e, <j,  a- b- $+>]
+  prelique frac=0.25 on  5.250 * [{e j}, <j,  a- b- $+>] . 15.750 * [e, <j,  a- b- $+>]
++++ accumulate never called! good version doesn't either.
++++ 
+  postique frac=0.25 on  0.000 * [{e j}, <j,  a- b- $+>] . 15.750 * [e, <j,  a- b- $+>]
+duude elt after  15.750 * [e, <j,  a- b- $+>]
+---
+so that ain't geood, but later on,
+
+
+good version:
+duude elt before  0.000 * (j,  a- b- e+)
+  prelique frac=1.0 on  0.000 * ({e j},  a- b- e+) .  0.000 * (j,  a- b- e+)
+  postique frac=1.0 on  0.000 * ({e j},  a- b- e+) .  0.000 * (j,  a- b- e+)
+duude elt after   0.000 * (j,  a- b- e+)
+Does the above do it???
+
+duude elt before  0.000 * [e, <j,  a- b- $+>]
+  prelique frac=0.25 on  5.250 * [{e j}, <j,  a- b- $+>] .  0.000 * [e, <j,  a- b- $+>]
+  postique frac=0.25 on  0.000 * [{e j}, <j,  a- b- $+>] .  0.000 * [e, <j,  a- b- $+>]
+duude elt after   0.000 * [e, <j,  a- b- $+>]
+
+In the good version,  [e, <j,abv>] somehow got zeroed... how?
+because  (j, abe) got ...zeroed??? it was zeroed in the first round.
+why not zered in the second round?
+
+the matching sections should be
+   (1-p) * (j, egh)
+   (1-p) * (j, abe) -- no!!
+====================================================
+
+reshape-merge is called with a FRAC that it passes to
+accumulate-count
+That frac comes from clique ...
+Clique sets it to ffractional if sections don't overlap.
+clique is called with either ACCUMULATE (from higher reaches,
+   the grand desion maker or
+or clique is calle with accumulate-count from reshape.
+Higher fun really should get same args as reshape-merge.
+
+i.e. ACC-FUN/ACCUMULATE should make the if frac decision
+so FRAC_FUN disappears from the signature
+
+
+
+can we change signature on ACC-FUN aka ACCUMULATE to match the
+more comprehensive signature on reshape-merge which is currently
+(reshape-merge OBJ CLS MRGECT WA SECT FRAC)
+that would mean making the sginature on  accumulate-count
+match that on reshape-merge
+
+Again:
+clique does not need the CLS argument, its available externally.
+Maybe clique should get the dj argument?
+clique is called with accumulate-count during assign  w/numeric frac
+clique is called with reshape-merge during merge step. w/numeric frac
+
+reshape uses FRAC in only one place! ... but it's key.
+
+-----------
+old bug ...
+In opencog/nlp/learn/gram-projective.scm:
+   924:32  2 (merge (WordClassNode "would must")
+ (WordClassNode "had has")
+)
+   736:16  1 (merge-clusters _ _ _ _ _)
+
+(define CLB (WordClassNode "had has"))
+(cog-incoming-size-by-type CLB 'Section) ;10
+(cog-incoming-size-by-type CLB 'CrossSection) ;11
+(cog-incoming-size-by-type CLB 'Shape) ;10
+
+but (check) doesn't complain because these are all balanced!
+TODO:
+checkout branch r9-detailed-balance and halt before the merge is
+started, dump all sections and cross-sections for these guys
+into a file.  Ouch. But I see no other alternative, right now.
+
+
+ohh ... wait..
+the failing sections are all of the form:
+
+(Section (ctv 1 0 113)
+  (WordClassNode "had has")
+  (ConnectorSeq
+    (Connector
+      (WordNode "who")
+      (ConnectorDir "-"))
+    (Connector
+      (WordClassNode "would must")
+      (ConnectorDir "+"))))
+
+
+and bizarrely:
+(CrossSection (ctv 1 0 113)
+  (WordClassNode "had has")
+  (ShapeLink
+    (WordClassNode "would must")
+    (Connector
+      (WordNode "who")
+      (ConnectorDir "-"))
+    (Connector
+      (VariableNode "$connector-word")
+      (ConnectorDir "+"))))
+
+which is NOT the explosion! so that's .. not right! Note the balanced
+counts!  Also not deleted:
+
+(cog-incoming-set (ShapeLink
+  (WordClassNode "had has")
+  (Connector
+    (VariableNode "$connector-word")
+    (ConnectorDir "-"))
+  (Connector
+    (WordNode "been")
+    (ConnectorDir "+"))))
+$7 = ((CrossSection (ctv 1 0 6)
+  (WordClassNode "would must")
+  (ShapeLink
+    (WordClassNode "had has")
+    (Connector
+      (VariableNode "$connector-word")
+      (ConnectorDir "-"))
+    (Connector
+      (WordNode "been")
+      (ConnectorDir "+"))))
+)
+
+curious ... need to eximine the before state...
+
+
+
+
 ====================================================
 link-class.scm ???
 ====================================================
@@ -5145,17 +6030,27 @@ FIXED:
 	DONE.
 * Enhance: revise atomspace start-cogserver to take args directly
   DONE.
+* Similarity object needs to do all-pairs with word-classes and words.
+  'get-all-elts in the stars object needs to look at several
+  left types. Maybe TypeChoice??  DONE.
+
 
 
 TODO/BUGS:
+* Bugs: quotes are not being escaped by submit-one.pl!!
+  ... and worse, these are showing up as words with lots of
+  backslashes in them. See issue #31.
 * Set up direct-sum/shape clustering run scripts. (partly done)
+* Cleanup marginals after clustering ... marginals might have zero
+  counts for words, or words might not be in the basis?
+  which means the connector seqs need to be cleaned up too.
+  (as they are now unused/empty)
 * print-matrix-summary-report after MM^T shows nothing. Why?
   because 'mmt-marginals computes only word-pair entropies.
 * Fix count transfer in add-singleton-classes
 * cogserver is not flushing output on 2nd and later connections .. wtf!
   or just behaving incoherently/inconsistently with netcat.
   echo -e "(for-each (lambda (n) (sleep 1) (format #t \"ping ~A\" n)(newline)) (iota 10 1))\n.\n." | nc localhost 17001
-* Bugs: quotes are not being escaped by submit-one.pl!!
 * GC during pair counting happens too often.
   (that is, gc takes up too large a fraction of CPU.)
 * Pair counting disappointingly slow.

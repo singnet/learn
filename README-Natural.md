@@ -780,7 +780,7 @@ After observing word-pair counts, the mutual information (mutual
 entropy) between them needs to be computed.  This is a required step
 before disjunct observation can be started.
 
-Do this by running the `run/2-word-pairs/compute-marginals.sh`.
+Do this by running the `run/2-word-pairs/compute-marginals.sh` script.
 Batch-counting might take hours or longer (maybe over a day), depending
 on your dataset size. Small trial-run datasets should take no more than
 5-10 minutes... or seconds, for small artificial languages. This script
@@ -800,6 +800,15 @@ Thus, you may want to:
   RocksDB databases can be copied with the `cp -pr` command. Postgres
   databses can be copied with the `createdb -T` command.
 
+It appears that trimming the word-pair database may have a small but
+positive effect. Trimming to remove all words that have been observed
+ten or fewer times, and all word-pairs that have been observed 4 or
+fewer times will raise the average MI of the entire dataset, and cut
+the number of pairs in it by about half.  As the bulk of the dataset is
+word-pairs, this smaller number will reduce database size. The downside
+is that trimming requires some extra CPU-intensive steps:marginals have
+to be computed both before and after the trim. Trim by running
+`run/2-word-pairs/trim-dataset.sh`.
 
 The Vector Structure Encoded in Pairs
 -------------------------------------
@@ -1019,9 +1028,9 @@ Run that script. Its a wrapper around this:
       (cog-rocks-open "rocks:///home/ubuntu/data/expt-42/fake_pairs.rdb")
       (define pca (make-pseudo-cset-api))
       (define psa (add-pair-stars pca))
-      (define btr (batch-transpose psa))
       (psa 'fetch-pairs)
-      ((add-support-compute psa) 'cache-all) ; uhhh
+      ((add-support-compute psa) 'cache-all)
+      (define btr (batch-transpose psa))
       (btr 'mmt-marginals)
 ```
 Experimentation with cross-connectors is in progress.
@@ -1040,66 +1049,102 @@ The above computations may take hours or days, depending on the size
 of the disjunct set.  Be sure to make a backup copy of the resulting
 database before proceeding to the next step.
 
-(Optional) Trimming Disjunct Datasets
--------------------------------------
+(Optional but strongly recommended) Trimming Disjunct Datasets
+--------------------------------------------------------------
 The previous step can result in unmanagebly large datasets. These can be
-(and should be) trimmed to a smaller size. Good (excellent?) criteria
-for trimming is to remove all words that were observed less then 10 or
-30 times, and all disjuncts seen less than 5 or 10 times. This seems
-like a good idea, as low observation counts suggest the content is
-noise.  Because both the word and the disjunct distribution is Zipfian
-(i.e. half of all disjuncts might be observed only once!) this trimming
-step can easily remove 90% of the dataset.  The following sequence will
-perform the trim, as well as removing connectors that cannot connect to
-anything. (Note: it can be slow; hours for mid-size datasets.)
-
-The trim used below keeps all words observed more than 40 times, all
-disjuncts observed more than 8 times, and all word-disjunct pairs
-observed more than 5 times.  The initial dataset is called
-`all_disjunct_dataset`.
+(and should be) trimmed to a smaller size. More than 90% of all disjuncts
+are observed only once! Thus, removing these offers a tremendous data
+reduction. Removing all disjuncts that appear only once not only shrinks
+datasets by a lot, but allow later steps to run much more efficiently!
+(Trimming more than this might not be a good idea. See the Diary entries
+in Part Two, starting in June 2021, continuing into Part Three, Sept.
+2021.)
 
 ```
-   (cog-rocks-open "rocks:///where/ever/all_disjunct_dataset")
+; Utility to perform timming.
+(define (iter-trim a b c)
+   (define pca (make-pseudo-cset-api))
+   (define psa (add-pair-stars pca))
+	(define trm (add-trimmer psa))
+   (trm 'support-trim a b c)
+   (trm 'subtotal-trim a b c)
+   (trim-linkage psa)
+   (set! pca (make-pseudo-cset-api))
+   (set! psa (add-pair-stars pca))
+   ((add-support-compute psa) 'cache-all)
+   (print-matrix-summary-report psa)
+   (inexact->exact (round ((add-support-api psa) 'total-support-left)))
+)
+```
+The following sequence will perform the trim, as well as removing
+connectors that cannot connect to anything. Running this is slow:
+it may take hours for mid-size datasets.
+
+The trim used below keeps all words observed more than once, all
+disjuncts observed more than once, and word-disjunct pairs observed
+more than once.  The initial dataset is called `all_disjunct_dataset`.
+
+```
+   $ cp -pr full_dataset.rdb trimmed_dataset.rdb
+```
+Then, in guile:
+```
+   (cog-rocks-open "rocks:///where/ever/trimmed_dataset.rdb")
    (define pca (make-pseudo-cset-api))
    (define psa (add-pair-stars pca))
    (psa 'fetch-pairs)        ;; Load the dataset
-   (cog-rocks-close)         ;; Avoid accidental corruption
    (define psc (add-support-compute psa))
    (psc 'cache-all)          ;; compute subtotals
-   (define fsa (add-subtotal-filter psa 40 8 5 #f)) ;; The filter itself
-   (define zfa (add-zero-filter fsa #f))
-   (define lfa (add-linkage-filter zfa))
-   (cog-rocks-open "rocks:///where/ever/trimmed_dataset.rdb")
-   (define fso (make-store lfa))
-   (fso 'store-all-elts)     ;; Do NOT store the marginals!
-   (cog-rocks-close)
-   ^D                        ;; Exit.
+
+   ; Now, repeatedly trim. This will settle down after 7 or 8
+   ; iterations. The problem is that each trim leaves behind
+   ; unconnectable words, which have to be removed, thus
+   ; throwing off the counts.
+   (iter-trim 1 1 1)
+   (iter-trim 1 1 1)
+   (iter-trim 1 1 1)
+   (iter-trim 1 1 1)
+   (iter-trim 1 1 1)
+   (iter-trim 1 1 1)
+   (iter-trim 1 1 1)
 ```
-The above just trims; but the marginals are needed for grammatical
-classifcation. So build these, as before, starting with a clean load
-of the atomspace with the new trimmed dataset:
+If you are also keeping word-word pairs in the same dataset as
+word-disjunct pairs, then some additional work is needed to keep these
+two in sync. The problem is that some words never appear in
+word-disjunct pairs, and so were never trimmed to begin with.  Get rid
+of these by saying:
 ```
-   (cog-rocks-open "rocks:///where/ever/trimmed_dataset.rdb")
-   (psa 'fetch-pairs)
-   (batch-all-pair-mi psa)    ;; MI between words and disjuncts
-   (define btr (batch-transpose psa))
-   (btr 'mmt-marginals)       ;; Word-pair entropies
+   (load-atoms-of-type 'WordNode) ; load words that are not in disjuncts.
+   (for-each
+      (lambda (base)
+         (if (and (cog-atom? base)
+               (equal? 0 (cog-incoming-size-by-type base 'Section)))
+            (cog-delete-recursive! base)))
+      (cog-get-atoms 'WordNode))
+```
+After the above trim, the marginals for word pairs will be all wrong.
+These now need to be recomputed, as described earlier.
+
+After trimming, the word-disjunct marginals, and the MM^T marginals will
+be stale.  These need to be recomputed, as well (as described earlier)
+```
+   ((batch-transpose psa) 'mmt-marginals) ;; Word-pair entropies
    (cog-rocks-close)
    ^D                         ;; Exit.
 ```
 
-***Footnote***: Postgres users: be sure to create the target database.
-Like so:
+If you don't actually recompute the MM^T marginals at this stage, then
+you should at least store the trimmed marginals:
 ```
-$ createdb trimmed_dataset
-$ cat atoms.sql | psql trimmed_dataset
+	((make-store psa) 'store-wildcards)
 ```
-Then use
-```
-   (sql-open "postgres:///all_disjunct_dataset.rdb")
-	(sql-close)
-```
-as needed.
+Seriously, though, you really need the MM^T marginals for the later
+stages to work.
+
+After the above steps, a typical dataset might contain 15K words and
+about a million disjuncts. The total AtomSpace size will be about 4
+million atoms; this will require about 4GB of RAM. This is quite
+manageable. Datasets before trimming may be ten times larger!
 
 Determining Grammatical Classes
 -------------------------------
@@ -1112,7 +1157,7 @@ the syntactic structure of the language, on a word-by-word basis,
 complete with statistical information about how often each disjunct
 occurs, relative to all the others.
 
-Unfortunately, its a huge dataset, and it still contains some fair
+Typically, this is a large dataset, and it still contains some fair
 amount of noise (although it contains less noise than a single MST
 tree -- all of those bad MST parses are beginning to average out).
 Further averaging and noise reduction (and thus, higher accuracy)
@@ -1124,14 +1169,31 @@ have to be merged into grammatical categories. What's more, these
 categories have to be consistent with the categories obtained from
 clustering the words.
 
-This requirement makes the algorithm for discovering grammatical
-classes fundamentally unique, and different than any other clustering
-algorithm employed before. This is not an exaggeration; however,
-many/most people struggle with this concept, so its sketched below.
-The paper on "Sheaf Theory", located at
+This requirement makes it difficult to apply off-the-shelf clustering
+software. Thus, a number of different clustering algos have been coded
+up in this project.  All of them are "agglomerative", and have three
+basic steps:
+
+1. Compute similarities between word-vectors.
+
+2. Pick N similar words.
+
+3. Merge these into a cluster.
+
+4. Recompute similarities, and go to step 2.
+
+The primary difficulties are avoiding wasting mind-boggling amounts
+of CPU time computing similarities, and performing the actual merge.
+The first problem is solved by only considering a limited number of
+similarities, those between the top-ranked words (ranked by frequency.)
+
+The actual merge is far more difficult. Basic concepts are sketched
+below.  The paper on "Sheaf Theory", located at
 https://github.com/opencog/atomspace/blob/master/opencog/sheaf/docs/sheaves.pdf
-explains this in greater detail.  There will also be an upcoming blog
-post on this.
+explains this in greater detail.  Somwehere there is a blog
+post on this. (XXX where?)
+
+### Word-vectors
 
 The collection of (word,disjunct) pairs can be thought of as a
 collection of vectors, one per word.  The observed frequency `p(w,d)`
@@ -1151,24 +1213,28 @@ basis vectors.
 There is one such vector per word. The probabilities `p(w,d)` are
 experimentally determined.  Since there is a vector per word, all of the
 industry-standard concepts can be applied: one can compute the cosine
-angle between two words. One can compute the jaccard distance.  One
-can compute the (symmetric!) mutual information between two words (the
-Kullbeck-Liebler divergence) because now, the word-order no longer
-matters; the two words are no longer embedded in a sentence.  All of
-these different metrics give a hint at how similar or different two
-words might be.
+angle between two words. One can compute the Jaccard distance.  One
+can compute the (symmetric!) mutual information (MI) between two words
+(the Kullbeck-Liebler divergence).  All of these different metrics give
+a judgement of how similar or different two words might be.
 
-It is now super-duper tempting to apply industry-standard big-data
-tools to obtain clusters. For example, one can do K-means clustering,
-if one wished.  One can take the famous, well-known Adagram or Word2Vec
-algorithms, and replace the n-grams/skip-grams in these algos by the
-disjuncts. That is, the disjunct-vector above is really very, very much
-like a traditional n-gram/skip-gram.  If one applies these, or other
-neural-net techniques to the disjunct vectors, one could get results
-that are very similar to what the current n-gram/skip-gram techniques
-are producing.  The results would be similar because the "statistical
-power" in the word-disjunct vectors is very similar to the statistical
-power in a skip-gram. They really are not all that different.
+Experimental work indicates that cosine-distance is terrible, and that
+MI works pretty good. The Jaccard distance might be better; this is
+supported by some experiments, but those are poorly designed.
+
+### Clustering
+
+It is tempting to apply industry-standard tools to obtain clusters.
+For example, one could do K-means clustering, if one wished.  One
+could take the famous, well-known Adagram or Word2Vec algorithms, and
+replace the n-grams/skip-grams in these algos by the disjuncts. That is,
+the disjunct-vector above is a lot like a traditional n-gram/skip-gram.
+ If one applies these, or other neural-net techniques to the disjunct
+vectors, one would likely get results that are very similar to what the
+current n-gram/skip-gram techniques are producing.  The results would
+be similar because the "statistical power" in the word-disjunct vectors
+is very similar to the statistical power in a skip-gram. They really
+are not all that different.
 
 ***HOWEVER...***
 There is one hugely-important, critical difference.
@@ -1206,14 +1272,14 @@ exactly how they stitch together.
 
 The correct determination of grammatical classes requires that the
 stitching of this fabric be accounted for. The paper on 'sheaf theory'
-tries to explain this in greater detail. The code here tries to actually
-implement these ideas.
+tries to explain this in greater detail. The code here implements
+these ideas.
 
 Exploring Word-Word Distances
 -----------------------------
 The classic word-word distance is the cosine distance. As the above
-explains, this is not really the correct metric. But you can play
-around with it, anyway:
+explains, this works rather poorly. But you can play around with it,
+anyway:
 ```
       (define pco (add-pair-cosine-compute psa))
       (pco 'right-cosine (Word "this") (Word "that"))
@@ -1221,22 +1287,26 @@ around with it, anyway:
 ```
 A superior measure to the cosine-distance is the mutual information
 between word-disjunct vectors. This is computed using the same vectors,
-and a similar dot-product, but is weighted differrently, in a way that
+and a similar dot-product, but is weighted differently, in a way that
 makes more sense for probabilities.
 ```
       (define pmi (add-symmetric-mi-compute psa))
       (pmi 'mmt-fmi (Word "this") (Word "that"))
 ```
 
-Experimental code is located in
-[disjunct-stats.scm](learn-lang-diary/disjunct-stats.scm)
+The Diary Part One, Two and Three each explore the statistics and
+structure of these vectors. The code that was used to create the
+various graphs can be found scattered in the
+[learn-lang-diary/utils](learn-lang-diary/utils/) directory, primarily
+in [disjunct-stats.scm](learn-lang-diary/utils/disjunct-stats.scm).
 
 
 Creating Grammatical Classes
 ----------------------------
-The clustering code, for isolating grammatical classes, is in active
-development. The instructions here are provisional and subject to
-change.
+The development of the clustering code, for isolating grammatical
+classes, is winding down.  Things seem to be working. There are a few
+ideas that still need to be coded. There are probably some bugs still
+lurking.  The instructions here are provisional and subject to change.
 
 * Make a copy of the table holding the disjunct statistics. This is
   critical! The clustering algorithm(s) actively alter the per-word
@@ -1250,31 +1320,45 @@ change.
 ```
       (use-modules (opencog) (opencog persist) (opencog persist-rocks))
       (use-modules (opencog nlp) (opencog nlp learn))
-      (use-modules (opencog matrix) (opencog sheaf))
+      (use-modules (opencog matrix))
       (cog-rocks-open "rocks:///home/ubuntu/data/expt-8/gram-1.rdb")
 ```
-  and the, try either
+  and then
 ```
-      (gram-classify-greedy-discrim 0.5 4)
-```
-  or
-```
-      (gram-classify-greedy-fuzz 0.65 0.3 4)
+      (use-modules (srfi srfi-1))
+      (define pca (make-pseudo-cset-api))
+      (define pcs (add-pair-stars pca))
+      (define sha (add-covering-sections pcs))
+      (sha 'fetch-pairs)
+      (sha 'explode-sections)
+
+      (if (forgot-to-do-mmt-marginals-yet?)
+         ((batch-transpose sha) 'mmt-marginals)
+      )
+
+      ; Create 500 grammatical clusters
+      ; This many will take days or a week!  You can do less!
+      ; This will print lots of diagnostics!
+      (pair-wise-cluster sha 200 500)
 ```
   The meanings of the parameters are explained in the function
-  documentation; See the [gram-agglo.scm](scm/gram-agglo.scm) file.
+  documentation; See the [agglo-rank.scm](scm/agglo-rank.scm) file.
 
-  Both will take days to run. You can start poking at the results
-  earlier, though. the file `learn-lang-diary/word-classes/word-classes.scm`
+  This will take days to run. You can start poking at the results
+  earlier, though. The file `learn-lang-diary/word-classes/word-classes.scm`
   contains an ad-hoc assortment of tools that can be used to examine
   the word-classes discovered so far.  Read it for details.
 
   Note that, because the above alters word-vectors on the fly, the
-  cosine-angles between words will change over time, and thus might
-  not actually be what you expect. If you want to play with cosine
-  distances or other metrics, you need to do so on a separate, clean
-  database load. The above database **will** be altered.
+  MI between words will change over time, and thus might not actually
+  be what you expect. The clusering step splits words up into distinct
+  word-senses based on the grammatical category to which disjuncts are
+  assigned. Thus, words that can be both nouns and verbs are typically
+  split into two or more clusters, at this stage, and what remains of
+  the original word might be just some random noise that was unassigned.
 
+Export to Link Grammar
+----------------------
 At the conclusion of clustering, the results can be exported to Link
 Grammar. This can be done as follows:
 
@@ -1371,46 +1455,31 @@ TODO
 ----
 Some things in the pipeline, but unfinished:
 
-* Replace cosine distance in the clustering algos by the information
-  divergence, as explained in the
+* Read
   [Graph Models vs. Gradient Descent](https://github.com/opencog/opencog/raw/master/opencog/nlp/learn/learn-lang-diary/skippy.pdf)
-  document.  There's already code for computing the divergence;
-  to get it, just say
-```
-      (define smi (add-symmetric-mi-compute pca))
-      (smi 'mmt-fmi (Word "foo") (Word "bar"))
-```
-
-* Replace centroid means, as explained above.
+  document.
 
 * The clustering algos above already perform word-sense factoring.
   Explicit word-senses can be identified by looking at multi-cluster
   membership.  These can now start to be used for re-parsing, to
   obtain word-sense pair-correlation statistics.
 
+  Explain the above, document it more clearly.
 
-Exporting a Lexis
+* More unit tests are needed. I guess. Most things are tested by
+  daily use. Testing things that are not stable is pointless.
+
+TODO - Clustering
 -----------------
-The collection of grammatical classes, the words that belong to them,
-and the attached disjuncts comprise a lexis that is compatible with the
-Link Grammar parser. It can be exported with the `export-csets`
-function. When copied to a location where Link Grammar can find it,
-it can be used to parse text by the link parser.
+(Finish) implementing clique clustering. See `cliques.scm`.
 
+TODO - Export to Link Grammar
+-----------------------------
+Make sure the above instructions are still correct. Make sure that
+everything works.
 
-Clustering
-----------
-The clustering code is in development, and the best/fastest algorithms
-are not yet known.  The best metrics are not known; currently, the code
-can be configured to use (symmetric) mutual information or cosing
-distance.
-
-Given a set of grammatical classes derived in this way, together with
-disjuncts that are formed from the classes, these can be loaded into
-link-grammar dictionaries. Use the `export-disjuncts.scm` file to do
-this. The exported lexis is in `sqlite3` format, which the link-grammar
-parser understands.
-
+TODO - Quality Evaluation
+-------------------------
 A reasonable next step is to run raw text through this parser,
 accumulate statistics on the individual disjuncts, and see how they
 stack up against the original stats. Are some disjuncts being used far
@@ -1422,9 +1491,12 @@ different parses than others; where do they differ? Why?
 Given a stable dictionary, an obvious next step is to attempt to
 perform reference resolution.
 
+See [README-Calibration](README-Calibration.md) for more about
+quality calibration.
 
-Measuring Quality
------------------
+
+TODO -- Measuring Quality
+-------------------------
 Current efforts are focused on judging the quality of the results. Manual
 inspection looks pretty good. Manual inspection is not enough to allow
 the fine-tuning of the algorithms and parameters. Measuring results
@@ -1465,6 +1537,8 @@ enough to do some basic work. The steps are:
 
 * Download a container from
   https://linas.org/lxc-nlp-containers/
+  *** XXX No. These are all stale and out of date. *** Contact me for
+  something modern.
 
 * The following describe root-owned containers. You can also have
   user-owned containers, if you know how to do that.

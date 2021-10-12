@@ -140,9 +140,13 @@
              (ConnectorLink ...)
              ...))
 
-  A more detailed description is at the top of this file.
+  A more detailed description is given in the `shape-vec.scm` file.
 
-  In addition to the usual methods, this also provides:
+  In addition to the usual methods, this class also provides a
+  collection of methods that are used to merge Sections and
+  CrossSections by replacing specific Words by WordClasses both
+  in the germ, and in the Connectors.  These are described below.
+
   'make-section CROSS  -- Create and return the section that corresponds
        to the CrossSection CROSS.
 
@@ -163,8 +167,8 @@
        and connectors that belong to CLS by the corresponding connector
        for CLS. If no connectors belong to CLS, then return #f.
 "
-	(let ((l-basis '())
-			(r-basis '())
+	(let ((l-basis #f)
+			(r-basis #f)
 			(l-size 0)
 			(r-size 0)
 		)
@@ -174,11 +178,13 @@
 		(define any-left (AnyNode "cross word"))
 		(define any-right (AnyNode "cross shape"))
 
-		; Well, left-type can also be a WordClassNode, but we lie
-		; about that, here.
-		(define (get-left-type) 'WordNode)
-		(define (get-right-type) 'ShapeLink)
-		(define (get-pair-type) 'CrossSection)
+		; The types are all non-trivial.
+		; We expect (LLOBJ 'right-type) to be (Type 'ConnectorSeq)
+		; We expect (LLOBJ 'pair-type) to be (Type 'Section)
+		(define (get-right-type)
+			(TypeChoice (LLOBJ 'right-type) (Type 'ShapeLink)))
+		(define (get-pair-type)
+			(TypeChoice (LLOBJ 'pair-type) (Type 'CrossSection)))
 
 		; Get the observational count on the word-shape pair
 		(define (get-count SHAPE-PR) (cog-count SHAPE-PR))
@@ -330,19 +336,10 @@
 
 		; -------------------------------------------------------
 		; Stars API.
-		; Get both the Words and the WordClasses; put WordClasses first.
-		(define (get-left-basis)
-			(if (null? l-basis) (set! l-basis
-				(append! (cog-get-atoms 'WordClassNode) (cog-get-atoms 'WordNode))))
-			l-basis)
 
 		(define (get-right-basis)
-			(if (null? r-basis) (set! r-basis (cog-get-atoms 'ShapeLink)))
+			(if (not r-basis) (set! r-basis (cog-get-atoms 'ShapeLink)))
 			r-basis)
-
-		(define (get-left-size)
-			(if (eq? 0 l-size) (set! l-size (length (get-left-basis))))
-			l-size)
 
 		(define (get-right-size)
 			(if (eq? 0 r-size) (set! r-size (length (get-right-basis))))
@@ -350,9 +347,7 @@
 
 		; Invalidate the caches
 		(define (clobber)
-			(set! l-basis '())
-			(set! r-basis '())
-			(set! l-size 0)
+			(set! r-basis #f)
 			(set! r-size 0)
 			(if (LLOBJ 'provides 'clobber) (LLOBJ 'clobber))
 		)
@@ -496,121 +491,6 @@
 				(- (current-time) start-time))
 		)
 
-#! ========================  XXX THE CODE BELOW IS DEAD CODE
-Hang on ... how dead is this, really? I think we need to provide
-the ability to get left-duals and stars that have WordClassNodes
-in them, and not just WordNodes... so this code needs to be fixed
-up, right?  Or do we just get lucky, and everything works right?
-I'm confused ...
-
-I'm going to keep this code here for a while, because it does some
-interesting pattern matching to mine out section wild-cards that
-correspond to words, and to shapes. However, this is no longer
-needed, in the current implementation. It might be needed in the
-future, and it was tricky to write and debug, so I am keeping it
-around for a while.
-		; -------------------------------------------------------
-		; The right-stars of a WordNode are all of the Sections in
-		; which that Word appears in some Connector. A BindLink is
-		; used to get those sections. This is done in a private,
-		; temporary atomspace, to avoid polluting the main atomspace
-		; with junk. Its also done RAII style, so that ctrl-C does
-		; not leave things in a fumbled state.
-		;
-		; Run a query, and return all Sections that contain WORD
-		; in a Connector, some Connector, any Connector.
-		;
-		; Use Put-Get instead of BindLink, so that mutiple distinct
-		; Get's that might generate identical Put's are generated
-		; correctly (i.e. with multiplicity)
-		(define (right-stars-query WORD)
-			; The WORD must occur somewhere, anywhere in a conector.
-			(define body (Section
-				(Variable "$point")
-				(ConnectorSeq
-					(Glob "$begin")
-					(Connector WORD (Variable "$dir"))
-					(Glob "$end"))))
-
-			(define vardecl (VariableList
-				(TypedVariable (Variable "$point")
-					(TypeChoice (Type 'WordClassNode) (Type 'WordNode)))
-				(TypedVariable (Glob "$begin") (Interval (Number 0) (Number -1)))
-				(TypedVariable (Variable "$dir") (Type "ConnectorDir"))
-				(TypedVariable (Glob "$end") (Interval (Number 0) (Number -1)))))
-
-			; The types that are matched must be just-so.
-			(Put body (Get vardecl body)))
-
-		; Just like above, but return the shape, not the section.
-		(define (right-duals-query WORD)
-			; The WORD must occur somewhere, anywhere in a conector.
-			(define body (Section
-				(Variable "$point")
-				(ConnectorSeq
-					(Glob "$begin")
-					(Connector WORD (Variable "$dir"))
-					(Glob "$end"))))
-
-			; We use the DontExec hack, as otherwise the execution of
-			; this attempts to evaluate the resulting ShapeLink.
-			; (XXX really? I don't think so...)
-			(define shape (DontExec (Shape
-				(Variable "$point")
-				(Glob "$begin")
-				(Connector star-wild (Variable "$dir"))
-				(Glob "$end"))))
-
-			(define vardecl (VariableList
-				(TypedVariable (Variable "$point")
-					(TypeChoice (Type 'WordClassNode) (Type 'WordNode)))
-				(TypedVariable (Glob "$begin") (Interval (Number 0) (Number -1)))
-				(TypedVariable (Variable "$dir") (Type "ConnectorDir"))
-				(TypedVariable (Glob "$end") (Interval (Number 0) (Number -1)))))
-
-			; The types that are matched must be just-so.
-			(Put (VariableList
-				(Variable "$point")
-				(Glob "$begin")
-				(Variable "$dir")
-				(Glob "$end")) shape (Get vardecl body)))
-
-		;-------------------------------------------
-		; The left-stars consist of all Sections of a fixed shape,
-		; that shape given by R-ATOM, but with any word occuring
-		; in the connector-location in that shape.
-		(define (left-stars-query R-ATOM)
-			(define body (make-pair star-wild R-ATOM))
-
-			; The types that are matched must be just-so.
-			(Put body (Get (TypedVariable star-wild
-					(TypeChoice (Type 'WordClassNode) (Type 'WordNode)))
-				body)))
-
-		; Just like above, but return only the words, not the Sections.
-		(define (left-duals-query R-ATOM)
-			(Get (TypedVariable star-wild
-					(TypeChoice (Type 'WordClassNode) (Type 'WordNode)))
-				(make-pair star-wild R-ATOM)))
-
-		;-------------------------------------------
-		; Explain the non-default provided methods.
-		(define (provides meth)
-			(case meth
-				((left-basis)         get-left-basis)
-				((right-basis)        get-right-basis)
-				((left-basis-size)    get-left-size)
-				((right-basis-size)   get-right-size)
-				((left-star-pattern)  left-stars-query)
-				((right-star-pattern) right-stars-query)
-				((left-dual-pattern)  left-duals-query)
-				((right-dual-pattern) right-duals-query)
-
-				((make-left-stars)    explode-sections)
-				(else #f)
-		))
-========================  XXX THE CODE ABOVE IS DEAD CODE
-!#
 		;-------------------------------------------
 		; Fetch (from the database) the cross-sections (only),
 		; as well as all the marginals for the cross-sections.
@@ -632,9 +512,7 @@ around for a while.
 		; Explain the non-default provided methods.
 		(define (provides meth)
 			(case meth
-				((left-basis)         get-left-basis)
 				((right-basis)        get-right-basis)
-				((left-basis-size)    get-left-size)
 				((right-basis-size)   get-right-size)
 				((clobber)            clobber)
 				(else #f)
@@ -645,7 +523,7 @@ around for a while.
 			(apply (case message
 				((name)       (lambda () "Cross-section Words"))
 				((id)         (lambda () "cross-section"))
-				((left-type)        get-left-type)
+				; ((left-type)        get-left-type)  ; provided by LLOBJ
 				((right-type)       get-right-type)
 				((pair-type)        get-pair-type)
 				((pair-count)       get-pair-count)
@@ -659,6 +537,11 @@ around for a while.
 				((wild-wild)        get-wild-wild)
 				((fetch-pairs)      fetch-sections)
 
+				; Overloaded stars methods
+				((right-basis)      get-right-basis)
+				((right-basis-size) get-right-size)
+				((clobber)          clobber)
+
 				; Custom calls.
 				((explode-sections) explode-sections)
 				((make-section)     make-section)
@@ -670,11 +553,14 @@ around for a while.
 				((is-nonflat?)      is-nonflat-section?)
 
 				((provides)         provides)
-				((clobber)          clobber)
 				((filters?)         (lambda () #f))
 
-				((describe)         (describe))
-				(else (error "Bad method call on cross-section:" message)))
+				((describe)         describe)
+				((help)             describe)
+				((obj)              (lambda () "add-shape-vec-api"))
+				((base)             (lambda () LLOBJ))
+				(else               (lambda ( . rest )
+				                        (apply LLOBJ (cons message args)))))
 			args))
 ))
 
@@ -682,9 +568,33 @@ around for a while.
 ;
 (define-public (add-covering-sections LLOBJ)
 "
-  prototype
+  add-covering-sections LLOBJ -- Direct sum of Sections and CrossSections
+
+  This object accepts an LLOBJ that exposes vectors of Sections, and
+  provides an API for vectors of Sections-oplus-CrossSections, i.e. for
+  the direct sum of these two.  Thus, any given vector will have basis
+  elements taken from both. The CrossSections are provided by the
+  `add-shape-vec-api` object.
+
+  This is done in order to get a self-consistent view into the
+  (word,disjunct) pair matrix, when words are being clustered into
+  clusters. The issue is that words appear not only on the left, but
+  also within Connectors in the disjunct. During clustering, the
+  Connectors need to be merged, and the disjuncts updated. The
+  CrossSections provide an \"almost-linear\" API that helps perform
+  this task. That is, merging is inherently non-linear, and, in some
+  cases, non-cummutative. The CrossSections and Shapes help keep things
+  almost linear as far into the process as possible.
+
+  Since the whole point of this object is to support merging, it will
+  wrap the LLOBJ with the `add-gram-class-api` object.
+
+  See docs for `add-shape-vec-api` for more info about CrossSections
+  and Shapes. See `direct-sum` for more info about the direct sum.
+  See `add-gram-class-api` for more about grammatical classes.
 "
-	(define stars-obj (add-pair-stars LLOBJ))
+	(define gram-obj (add-gram-class-api LLOBJ))
+	(define stars-obj (add-pair-stars gram-obj))
 	(define shape-obj (add-shape-vec-api stars-obj))
 	(define shape-stars (add-pair-stars shape-obj))
 
@@ -693,11 +603,16 @@ around for a while.
 	(define cover-obj (direct-sum stars-obj shape-stars))
 	(define cover-stars (add-pair-stars cover-obj))
 
-	; Pass explode to the sahpe object, and then clobber all caches.
+	; Pass explode to the shape object, and then clobber all caches.
 	(define (explode-sections)
 		(shape-obj 'explode-sections)
 		(cover-stars 'clobber))
 
+	;-------------------------------------------
+	(define (describe)
+		(display (procedure-property add-gram-class-api 'documentation)))
+
+	;-------------------------------------------
 	; Methods on the object
 	(lambda (message . args)
 		(case message
@@ -707,6 +622,7 @@ around for a while.
 			; pass-through
 			((fetch-pairs)         (cover-obj 'fetch-pairs))
 			((explode-sections)    (explode-sections))
+
 			((make-section)        (apply shape-obj (cons message args)))
 			((get-section)         (apply shape-obj (cons message args)))
 			((make-cross-sections) (apply shape-obj (cons message args)))
@@ -715,6 +631,16 @@ around for a while.
 			((flatten)             (apply shape-obj (cons message args)))
 			((is-nonflat?)         (apply shape-obj (cons message args)))
 
+			((cluster-type)        (apply gram-obj (cons message args)))
+			((make-cluster)        (apply gram-obj (cons message args)))
+			((store-aux)           (apply gram-obj (cons message args)))
+
+			((describe)            describe)
+			((help)                describe)
+			((obj)                 "add-covering-sections")
+			((base)                LLOBJ)
+
+			; cover-stars is the direct product, and it handles the rest.
 			(else             (apply cover-stars (cons message args)))))
 )
 

@@ -112,9 +112,9 @@
 		(define any-left (AnyNode "cset-word"))
 		(define any-right (AnyNode "cset-disjunct"))
 
-		(define (get-left-type) 'WordNode)
-		(define (get-right-type) 'ConnectorSeq)
-		(define (get-pair-type) 'Section)
+		(define (get-left-type) (Type 'WordNode))
+		(define (get-right-type) (Type 'ConnectorSeq))
+		(define (get-pair-type) (Type 'Section))
 
 		; Get the pair, if it exists.
 		(define (get-pair L-ATOM R-ATOM)
@@ -143,14 +143,19 @@
 		; Fetch (from the database) all pseudo-csets
 		(define (fetch-pseudo-csets)
 			(define start-time (current-time))
-			; Marginals are located on any-left, any-right
-			(fetch-incoming-set any-left)
-			(fetch-incoming-set any-right)
+
+			; Marginals are located on a ListLink on any-left, any-right
+			(fetch-incoming-by-type any-left 'ListLink)
+			(fetch-incoming-by-type any-right 'ListLink)
+
 			; Loading Sections is a bit too much, as that will also
 			; pick up WordClassNodes. But I guess that is OK for now.
 			(load-atoms-of-type 'Section)
 			(format #t "Elapsed time to load csets: ~A secs\n"
 				(- (current-time) start-time)))
+
+		(define (describe)
+			(display (procedure-property make-pseudo-cset-api 'documentation)))
 
 		; Methods on the object
 		(lambda (message . args)
@@ -172,6 +177,10 @@
 				((fetch-pairs)    fetch-pseudo-csets)
 				((provides)       (lambda (meth) #f))
 				((filters?)       (lambda () #f))
+				((help)           describe)
+				((describe)       describe)
+				((obj)            (lambda () "make-pseudo-cset-api"))
+				((base)           (lambda () #f))
 				(else (error "Bad method call on pseudo-cset:" message)))
 			args)))
 )

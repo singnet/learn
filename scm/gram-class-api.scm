@@ -8,13 +8,12 @@
 ; ---------------------------------------------------------------------
 ; OVERVIEW
 ; --------
-; This file provide the "matrix-object" API that allows grammatical
+; This file provides the `matrix-object` API that allows grammatical
 ; classes of words to be treated as vectors of connector-sets (vectors
 ; of disjuncts; vectors of Sections).
 ;
-; This is effectively the same thing as `make-pseudo-cset-api`, except
-; that the rows of the matrix correspond to `WordClassNodes` instead
-; of `WordNodes`.
+; This is meant to be used as a wrapper around `make-pseudo-cset-api`,
+; extending it so that both `WordNode`s and `WordClassNode`s are handled.
 ;
 ; ---------------------------------------------------------------------
 ;
@@ -23,85 +22,66 @@
 (use-modules (opencog persist))
 (use-modules (opencog matrix))
 
-(define-public (make-gram-class-api)
+; ---------------------------------------------------------------------
+
+; This class kind-of resembles a direct sum (as coded in the
+; `direct-sum` object) but its ad hoc, hard-coded, not generic.
+(define-public (add-gram-class-api LLOBJ)
 "
-  make-gram-class-api -- Create a wordclass-disjunct matrix.
+  add-gram-class-api LLOBJ -- Enable (WordClass, disjunct) pairs.
 
-  The matrix consists of (word-class, disjunct) pairs (a 'disjunct' and a
-  'cset' or 'connector set' are all different names for the same thing).
-  The word-classes (grammatical classes) appear as rows of the matrix;
-  the disjuncts as columns.
+  This will take LLOBJ and extend it's native `left-type with the
+  `WordClass` type, so that the left type can be either.  It also
+  provides methods for managing the `MemberLink`s that indicate
+  membership of the 'left-type in the `WordClass`.
 
-  Recall that word classes are marked with a 'WordClassNode', and that
-  the membership of a word to a WordClass is denoted as
+  The membership of a word to a WordClass is denoted as
 
       (MemberLink (WordNode \"foo\") (WordClassNode \"bar\"))
 
   Keep in mind that a word might belong to more than one WordClass.
+  Contributions to the class are stored as counts on the MemberLink.
 
-  This class performs no self-consistency checking; it simply provides
-  access to all elements of the form
+  See the `pseudo-csets.scm` file for a general overview.
 
-     (Section (WordClassNode ...) (ConnectorSeq ...))
+  Provided methods:
+    'left-type -- returns (TypeChoice (LLOBJ 'left-type) (Type 'WordClassNode))
+    'store-aux -- Store the MemberLinks above.
+    'fetch-pairs -- Fetch both WordClassNodes and MemberLinks.
 
-  that can be found in the atomspace. In particular, the ConnectorSeq
-  may reference words that are not in some WordClass.  Thus, you may
-  want to layer some filtering on top of this, to get a self-consistent
-  network.
+    'cluster-type -- returns (Type 'WordClassNode)
 
-  For a detailed description, see the `pseudo-csets.scm` file.
-  This is similar to `make-pseudo-cset-api`; the primary diffference
-  being that it offers word-class access, instead of word access.
+    'make-cluster WA WB -- Creates a WordClassNode
 "
+	(define (get-left-type)
+		(TypeChoice (LLOBJ 'left-type) (Type 'WordClassNode)))
 
-	; Get the observational count on ATOM
-	(define (get-count ATOM) (cog-count ATOM))
+	(define any-left (AnyNode "gram-class"))
+	(define (get-left-wildcard DJ) (ListLink any-left DJ))
 
-	(define any-left (AnyNode "gram-class-word"))
-	(define any-right (AnyNode "gram-class-disjunct"))
-
-	(define (get-left-type) 'WordClassNode)
-	(define (get-right-type) 'ConnectorSeq)
-	(define (get-pair-type) 'Section)
-
-	; Get the pair, if it exists.
-	(define (get-pair L-ATOM R-ATOM)
-		(cog-link 'Section L-ATOM R-ATOM))
-
-	; Get the count, if the pair exists.
-	(define (get-pair-count L-ATOM R-ATOM)
-		(define stats-atom (get-pair L-ATOM R-ATOM))
-		(if (null? stats-atom) 0 (get-count stats-atom)))
-
-	(define (make-pair L-ATOM R-ATOM)
-		(Section L-ATOM R-ATOM))
-
-	(define (get-left-element PAIR) (gar PAIR))
-	(define (get-right-element PAIR) (gdr PAIR))
-
-	(define (get-left-wildcard DJ)
-		(ListLink any-left DJ))
-
-	(define (get-right-wildcard WRD-CLS)
-		(ListLink WRD-CLS any-right))
-
-	(define (get-wild-wild)
-		(ListLink any-left any-right))
+	; Recycle the right wildcard from the parent class.
+	; XXX FIXME: this won't work for some classes, which store
+	; marginals in a different format than pairs. That is, the
+	; 'right-element method will work correctly on pairs only,
+	; not on marginals. For example, direct-sum is like that.
+	; Perhaps we should blame the classes for mis-handling marginals?
+	(define any-right (LLOBJ 'right-element (LLOBJ 'wild-wild)))
+	(define (get-wild-wild) (ListLink any-left any-right))
 
 	; Fetch (from the database) all Sections that have a WordClass
 	; on the left-hand-side. Fetch the marginals, too.
 	(define (fetch-disjuncts)
+
+		; Let the base object do the heavy lifting.
+		(LLOBJ 'fetch-pairs)
+
+		; Fetch all MemberLinks, as these indicate which Words
+		; belong to which WordClasses. Sections have already been
+		; fetched by the LLOBJ, so we won't do anything more, here.
 		(define start-time (current-time))
-		; Marginals are located on any-left, any-right
-		(fetch-incoming-set any-left)
-		(fetch-incoming-set any-right)
-		; Fetch only the Sections that have a WordClass in them,
-		; and not any other Sections.  Fetch all MemberLinks,
-		; as these indicate which Words belong to which WordClasses.
 		(load-atoms-of-type 'WordClassNode)
 		(for-each
 			(lambda (wcl)
-				(fetch-incoming-by-type wcl 'Section)
 				(fetch-incoming-by-type wcl 'MemberLink))
 			(cog-get-atoms 'WordClassNode))
 		(format #t "Elapsed time to load grammatical classes: ~A secs\n"
@@ -125,68 +105,77 @@
 			(map (lambda (wrdcls) (cog-incoming-by-type wrdcls 'MemberLink))
 				(cog-get-atoms 'WordClassNode))))
 
-	; Methods on the object
-	(lambda (message . args)
-		(apply (case message
-			((name) (lambda () "WordClass-Disjunct Pairs"))
-			((id)   (lambda () "gram-class"))
-			((left-type) get-left-type)
-			((right-type) get-right-type)
-			((pair-type) get-pair-type)
-			((pair-count) get-pair-count)
-			((get-pair) get-pair)
-			((get-count) get-count)
-			((make-pair) make-pair)
-			((left-element) get-left-element)
-			((right-element) get-right-element)
-			((left-wildcard) get-left-wildcard)
-			((right-wildcard) get-right-wildcard)
-			((wild-wild) get-wild-wild)
-			((fetch-pairs) fetch-disjuncts)
-			((store-aux) store-aux)
-			((provides) (lambda (symb) #f))
-			((filters?) (lambda () #f))
-			(else (error "Bad method call on gram-class-api:" message)))
-		args))
-)
-
-; ---------------------------------------------------------------------
-
-(define-public (add-cluster-gram LLOBJ)
-"
-  add-cluster-gram LLOBJ
-
-  Add definitions of grammatical classes to LLOBJ, for clustering.
-
-  During clustering, the code identifies pairs of similar words,
-  and provides the mechanics for merging them together, into a cluster.
-  Each such cluster is a grammatical class. However, that code does not
-  know how these should be laid out in the AtomSpace.  This object
-  defines the methods needed for actually managing and storing the
-  clusters generated during clustering.
-
-  Provided methods:
-    'cluster-type -- returns 'WordClassNode
-
-    'make-cluster WA WB -- Creates a WordClassNode
-"
-	(define (get-cluster-type) 'WordClassNode)
+	;-------------------------------------------
+	; Custom methods specific to this object.
+	(define (get-cluster-type) (Type 'WordClassNode))
 
 	; Create a word-class out of two words, or just extend an
 	; existing word class. Here, "extend" means "do nothing",
-	; return the existing class.
+	; return the existing class. If this is called a second time
+	; with the same arguments, then a new, unique name is generated!
+	; Therefore, this should never be called than once!
+	; XXX FIXME the semantics of this thing is ugly, and should be
+	; moved to the caller. We shouldn't have to second-guess the
+	; callers dsired behavior!
 	(define (make-cluster A-ATOM B-ATOM)
-		(if (eq? 'WordClassNode (cog-type A-ATOM)) A-ATOM
-			(WordClass (string-concatenate
-				(list (cog-name A-ATOM) " " (cog-name B-ATOM))))))
+		(define is-a-class (eq? 'WordClassNode (cog-type A-ATOM)))
+		(define is-b-class (eq? 'WordClassNode (cog-type B-ATOM)))
+		(cond
+			(is-a-class A-ATOM)
+			(is-b-class B-ATOM)
+			(else (let
+					((cluname (string-join
+						(list (cog-name A-ATOM) (cog-name B-ATOM)))))
+
+				; If `cluname` already exists, then append "(dup)" to the
+				; end of it, and try again. Keep repeating. In the real
+				; world, this should never happen more than once, maybe
+				; twice, unimaginable three times. So that iota is safe.
+				(every
+					(lambda (N)
+						(if (nil? (cog-node 'WordClassNode cluname)) #f
+							(begin
+								(set! cluname (string-append cluname " (dup)"))
+								#t)))
+					(iota 10000))
+				(WordClassNode cluname)))))
+
+	;-------------------------------------------
+	(define (describe)
+		(display (procedure-property add-gram-class-api 'documentation)))
+
+	;-------------------------------------------
+	; Explain the non-default provided methods.
+	(define (provides meth)
+		(case meth
+			((left-type)        get-left-type)
+			((store-aux)        store-aux)
+			(else #f)
+	))
 
 	; Methods on the object
 	(lambda (message . args)
-		(case message
-			((cluster-type)   (get-cluster-type))
-			((make-cluster)   (apply make-cluster args))
-			(else             (apply LLOBJ (cons message args)))
-		))
+		(apply (case message
+			((name)           (lambda () "WordClass-Disjunct Pairs"))
+			((id)             (lambda () "gram-class"))
+			((left-type)      get-left-type)
+			((left-wildcard)  get-left-wildcard)
+			((wild-wild)      get-wild-wild)
+
+			((fetch-pairs)    fetch-disjuncts)
+			((store-aux)      store-aux)
+
+			((cluster-type)   get-cluster-type)
+			((make-cluster)   make-cluster)
+
+			((provides)       provides)
+			((filters?)       (lambda () #f))
+			((describe)       describe)
+			((help)           describe)
+			((obj)            (lambda () "add-gram-class-api"))
+			((base)           (lambda () LLOBJ))
+			(else             (lambda ( . rest ) (apply LLOBJ (cons message args))))
+		) args))
 )
 
 ; ---------------------------------------------------------------------
@@ -342,74 +331,86 @@
 )
 
 ; ---------------------------------------------------------------------
+; The next three routines are used to build a cached set of valid
+; connector-seqs, for the right-basis-pred.
+; We need to know if every connector in a connector sequence is
+; a member of some word in WORD-LIST. Verifying this directly is
+; very inefficient. It is much faster to precompute the set of
+; known-good connector sequences, and refer to that.
 
-(define (add-linking-filter LLOBJ WORD-LIST-FUNC ID-STR)
+(define (get-connectors WRD-LST)
 "
-  add-linking-filter LLOBJ - Modify the word-disjunct LLOBJ so that
+  Return a list of connectors containing a word in the list
+"
+	(define con-set (make-atom-set))
+	(for-each
+		(lambda (word)
+			(for-each con-set
+				(cog-incoming-by-type word 'Connector)))
+		WRD-LST)
+	(con-set #f)
+)
+
+;-----------------------------
+(define (get-con-seqs CON-LST)
+"
+  Return a list of ConnectorSeq containing one or more
+  connectors from the CON-LST
+"
+	(define seq-set (make-atom-set))
+	(for-each
+		(lambda (ctr)
+			(for-each seq-set
+				(cog-incoming-by-type ctr 'ConnectorSeq)))
+		CON-LST)
+	(seq-set #f)
+)
+
+;-----------------------------
+(define (make-conseq-predicate STAR-OBJ WORD-LIST-FUNC)
+"
+  Create a predicate that returns true if a given ConnectorSeq
+  consists of WordNodes entirely in some WordClass.  That is,
+  this returns that predicate. This may take a few minutes to
+  run, if there are millions of ConnectorSeq's.
+
+  XXX FIXME: shouldn't this be relative to the left-basis of
+  STAR-OBJ, rather than *all words*?  Under the theory that maybe
+  there are words in the AtomSpace which are ... outside of the
+  domain we are supposed to be working on.
+"
+	; Unwanted words are not part of the matrix.
+	(define unwanted-words
+		(atoms-subtract
+			(cog-get-atoms 'WordNode) (WORD-LIST-FUNC)))
+
+	(define unwanted-cnctrs
+		(get-connectors unwanted-words))
+
+	(define unwanted-conseqs
+		(get-con-seqs unwanted-cnctrs))
+
+	(define good-conseqs
+		(atoms-subtract
+			; Take all connector-sequences, and subtract the bad ones.
+			; (cog-get-atoms 'ConnectorSeq)
+			(STAR-OBJ 'right-basis)
+			unwanted-conseqs))
+
+	; Return the predicate that returns #t only for good ones.
+	(make-aset-predicate good-conseqs)
+)
+
+;-----------------------------
+(define (add-linking-filter LLOBJ WORD-LIST-FUNC ID-STR RENAME)
+"
+  add-linking-filter LLOBJ - Filter the word-disjunct LLOBJ so that
   the only connector sequences appearing on the right consist entirely
   of connectors that have words appearing in the WORD-LIST. This is
   not a public function; it is used to build several public functions.
 "
-	; ---------------
-	; Cached set of valid connector-seqs, for the right-basis-pred.
-	; We need to know if every connector in a connector sequence is
-	; a member of some word in WORD-LIST. Verifying this directly is
-	; very inefficient. It is much faster to precompute the set of
-	; known-good connector sequences, and refer to that.
-
 	(define star-obj (add-pair-stars LLOBJ))
 
-	; Return a list of connectors containing a word in the list
-	(define (get-connectors WRD-LST)
-		(define con-set (make-atom-set))
-		(for-each
-			(lambda (word)
-				(for-each con-set
-					(cog-incoming-by-type word 'Connector)))
-			WRD-LST)
-		(con-set #f)
-	)
-
-	; Return a list of ConnectorSeq containing one or more
-	; connectors from the CON-LST
-	(define (get-con-seqs CON-LST)
-		(define seq-set (make-atom-set))
-		(for-each
-			(lambda (ctr)
-				(for-each seq-set
-					(cog-incoming-by-type ctr 'ConnectorSeq)))
-			CON-LST)
-		(seq-set #f)
-	)
-
-	; Create a predicate that returns true if a given ConnectorSeq
-	; consists of WordNodes eintirely in some WordClass.  That is,
-	; this returns that predicate. This may take a few minutes to
-	; run, if there are millions of ConnectorSeq's.
-	(define (make-conseq-predicate)
-		; Unwanted words are not part of the matrix.
-		(define unwanted-words
-			(atoms-subtract
-				(cog-get-atoms 'WordNode) (WORD-LIST-FUNC)))
-
-		(define unwanted-cnctrs
-			(get-connectors unwanted-words))
-
-		(define unwanted-conseqs
-			(get-con-seqs unwanted-cnctrs))
-
-		(define good-conseqs
-			(atoms-subtract
-				; Take all connector-sequences, and subtract the bad ones.
-				; (cog-get-atoms 'ConnectorSeq)
-				(star-obj 'right-basis)
-				unwanted-conseqs))
-
-		; Return the predicate that returns #t only for good ones.
-		(make-aset-predicate good-conseqs)
-	)
-
-	; ---------------
 	; Always keep any WordNode or WordClassNode we are presented with.
 	(define (left-basis-pred WRDCLS) #t)
 
@@ -418,7 +419,8 @@
 	; Only accept a ConnectorSeq if every word in every connector
 	; is in some word-class.
 	(define (right-basis-pred CONSEQ)
-		(if (not ok-conseq?) (set! ok-conseq? (make-conseq-predicate)))
+		(if (not ok-conseq?)
+			(set! ok-conseq? (make-conseq-predicate star-obj WORD-LIST-FUNC)))
 		(ok-conseq? CONSEQ)
 	)
 
@@ -428,12 +430,45 @@
 
 	; ---------------
 	(add-generic-filter LLOBJ
-		left-basis-pred right-basis-pred pair-pred ID-STR #f)
+		left-basis-pred right-basis-pred pair-pred ID-STR RENAME)
+)
+
+;-----------------------------
+(define (linking-trim LLOBJ WORD-LIST-FUNC)
+"
+  linking-trim LLOBJ - Trim the word-disjunct LLOBJ by deleting words
+  and connector sequences and sections which contain words other than
+  those provided by the WORD-LIST-FUNC. This is like `add-linking-filter`
+  above, except that it doesn't filter, it just deletes.  This is
+  not a public function; it is used to build several public functions.
+"
+	(define star-obj (add-pair-stars LLOBJ))
+
+	; Always keep any WordNode or WordClassNode we are presented with.
+	(define (left-basis-pred WRDCLS) #t)
+
+	(define ok-conseq? #f)
+
+	; Only accept a ConnectorSeq if every word in every connector
+	; is in some word-class.
+	(define (right-basis-pred CONSEQ)
+		(if (not ok-conseq?)
+			(set! ok-conseq? (make-conseq-predicate star-obj WORD-LIST-FUNC)))
+		(ok-conseq? CONSEQ)
+	)
+
+	; Input arg is a Section. The gdr (right hand side of it) is a
+	; conseq. Keep the section if the conseq passes.
+	(define (pair-pred SECT) (right-basis-pred (gdr SECT)))
+
+	; ---------------
+	(define trim-mtrx (add-trimmer LLOBJ))
+	(trim-mtrx 'generic-trim left-basis-pred right-basis-pred pair-pred)
 )
 
 ; ---------------------------------------------------------------------
 
-(define-public (add-wordclass-filter LLOBJ)
+(define-public (add-wordclass-filter LLOBJ RENAME)
 "
   add-wordclass-filter LLOBJ - Modify the wordclass-disjunct LLOBJ so
   that the only connector sequences appearing on the right consist
@@ -441,6 +476,9 @@
   the left. The resulting collection of wordclass-disjunct pairs is
   then self-consistent, and does not contain any connectors unable to
   form a connection to some word-class.
+
+  Set RENAME to #t if marginals should be stored under a filter-specific
+  name. Otherwise, set to #f to use the default marginal locations.
 "
 	; Return a list of words in word-classes
 	(define (get-wordclass-words)
@@ -455,12 +493,12 @@
 
 	(define id-str "wordclass-filter")
 
-	(add-linking-filter LLOBJ get-wordclass-words id-str)
+	(add-linking-filter LLOBJ get-wordclass-words id-str RENAME)
 )
 
 ; ---------------------------------------------------------------------
 
-(define-public (add-linkage-filter LLOBJ)
+(define-public (add-linkage-filter LLOBJ RENAME)
 "
   add-linkage-filter LLOBJ - Modify the word-disjunct LLOBJ so that
   the only connector sequences appearing on the right consist entirely
@@ -469,6 +507,9 @@
   in that it does not contain any connectors unable to form a
   connection to some word.  However, it may still contain words on
   the left that do not appear in any connectors!
+
+  Set RENAME to #t if marginals should be stored under a filter-specific
+  name. Otherwise, set to #f to use the default marginal locations.
 "
 	(define star-obj (add-pair-stars LLOBJ))
 
@@ -477,7 +518,29 @@
 
 	(define id-str "linkage-filter")
 
-	(add-linking-filter LLOBJ get-words id-str)
+	(add-linking-filter LLOBJ get-words id-str RENAME)
+)
+
+; ---------------------------------------------------------------------
+
+(define-public (trim-linkage LLOBJ)
+"
+  trim-linkage LLOBJ - Trim the word-disjunct LLOBJ by deleting words
+  and connector sequences and sections which contain words other than
+  those appearing in the left-basis.  This is like `add-linkage-filter`,
+  except that it doesn't filter, it just deletes.  The resulting
+  collection of word-disjunct pairs is then self-consistent,
+  in that it does not contain any connectors unable to form a
+  connection to some word.
+"
+	(define star-obj (add-pair-stars LLOBJ))
+
+	; Return a list of words
+	(define (get-words) (star-obj 'left-basis))
+
+	(define id-str "linkage-filter")
+
+	(linking-trim LLOBJ get-words)
 )
 
 ; ---------------------------------------------------------------------
