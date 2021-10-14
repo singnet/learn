@@ -77,6 +77,16 @@
 
 ; ---------------------------------------------------------------
 
+; XXX FIXME -- Maybe bug (I'm confused about this.) This function
+; computes mmt-q aka Q described in the diary, and uses it as a
+; constant offset. The problem is that it changes dramatically
+; as clusters are created and counts are moved. This means that
+; some of the stored similarity scores have the old Q on them, and
+; some have the new Q, and they are no longer comparable (!?) right?
+; The point is that the MI and the marginal logP in the common-MI
+; defnition are unchanged during merging, but mmt-q is. Thus, the
+; changing mmt-q unfairly bounces around new and old similarity
+; scores in some way that is not obvious and is history dependent. Hmm.
 (define (make-simmer LLOBJ)
 "
   make-simmer LLOBJ -- return function that computes and stores MI's.
@@ -332,13 +342,13 @@
 		(lambda (N)
 			(define e (make-elapsed-secs))
 			(define sorted-pairs (get-ranked-pairs LLOBJ MI-CUTOFF))
-			(format #t "------ Round ~A Next in line:\n" (diag-start N))
+			(format #t "------ Round ~A Next in line:\n" (+ 1 (diag-start N)))
 			(prt-sorted-pairs LLOBJ sorted-pairs 0 12)
 
 			(define top-pair (car sorted-pairs))
 			(MERGE-FUN (diag-start N) (gar top-pair) (gdr top-pair))
 
-			(format #t "------ Completed merge in ~A secs:\n" (e))
+			(format #t "------ Completed merge in ~A secs\n" (e))
 
 			; Expand the size of the universe
 			(define ranked-words (rank-words LLOBJ))
@@ -477,7 +487,7 @@
 
 	(define (do-merge N WA WB)
 		(format #t "------ Start merge ~D of `~A` and `~A`\n"
-			N (cog-name WA) (cog-name WB))
+			(+ N 1) (cog-name WA) (cog-name WB))
 
 		; If we are merging two classes into one, then the
 		; second class will be depopulated. We need to trash
@@ -517,9 +527,7 @@
   Recommended values QUORUM should be 0.7
   NRANK should be between 100 and 200
 
-TODO: we need to aggressively increase the rank, if big groups get merged.
-
-Prototype - finished, undocumented untested.
+Prototype - partly finished, partly-tested, undocumented.
 well, not quite finished, multi-class merge is still TBD.
 it will throw if this case is hit.
 "
@@ -531,7 +539,7 @@ it will throw if this case is hit.
 		(define miv (sap 'pair-count WA WB))
 		(if miv (cog-value-ref miv 1) -inf.0))
 
-	(define merge-ingroup (make-merge-ingroup LLOBJ QUORUM #t))
+	(define merge-majority (make-merge-majority LLOBJ QUORUM #t))
 
 	; ------------------------------
 	; Main workhorse function
@@ -552,7 +560,7 @@ it will throw if this case is hit.
 		(for-each (lambda (WRD) (format #t " `~A`" (cog-name WRD))) in-grp)
 		(format #t "\n")
 
-		(define wclass (merge-ingroup in-grp))
+		(define wclass (merge-majority in-grp))
 
 		(format #t "------ Merged into `~A` in ~A secs\n"
 			(cog-name wclass) (e))
@@ -560,6 +568,8 @@ it will throw if this case is hit.
 		; Recompute marginals after merge.
 		(for-each (lambda (WRD) (recompute-mmt LLOBJ WRD)) in-grp)
 		(recompute-mmt-final LLOBJ)
+
+		(format #t "------ Recomputed MMT marginals in ~A secs\n" (e))
 
 		; After merging, recompute similarities for the words
 		; that were touched.
